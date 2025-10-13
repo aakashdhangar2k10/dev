@@ -1,0 +1,50 @@
+
+  <meta name="description" content="A lightweight, customizable jQuery timepicker plugin inspired by Google Calendar. Add a user-friendly javascript timepicker dropdown to your app in minutes." />
+  <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+
+  <script type="text/javascript" src="jquery.timepicker.js"></script>
+  <link rel="stylesheet" type="text/css" href="jquery.timepicker.css" />
+
+  <script type="text/javascript" src="lib/bootstrap-datepicker.js"></script>
+  <link rel="stylesheet" type="text/css" href="lib/bootstrap-datepicker.css" />
+
+  <script type="text/javascript" src="lib/site.js"></script>
+  <link rel="stylesheet" type="text/css" href="lib/site.css" />
+
+
+        <article>
+        <?php if($_SESSION['type'] == "Administrator") {?>
+
+            <div class="demo">
+                  <p>
+                    <input id="setTimeExample" type="text" class="time" />
+                    <button id="setTimeButton">Set current  </button>
+                </p>
+            </div>
+
+            <script>
+                $(function() {
+                    $('#setTimeExample').timepicker();
+                    $('#setTimeButton').on('click', function (){
+                        $('#setTimeExample').timepicker('setTime', new Date());
+                    });
+                });
+            </script>
+
+ 
+        </article>
+
+    <script type="text/javascript">
+        var _gaq = _gaq || [];
+        _gaq.push(['_setAccount', 'UA-15605525-1']);
+        _gaq.push(['_trackPageview']);
+
+        (function() {
+            var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+            ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+            var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+        })();
+    </script>
+ 
+
+
