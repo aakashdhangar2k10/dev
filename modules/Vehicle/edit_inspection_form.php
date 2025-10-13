@@ -41,7 +41,11 @@ if ($vehicle_id) {
                 </div>
 
                 <div class="box-body">
-                    <form method="POST" action="controller.php">
+                    <?php if (isset($_GET['status']) && $_GET['status'] === 'updated'): ?>
+                        <div class="alert alert-success">Inspection updated successfully!</div>
+                    <?php endif; ?>
+
+                    <form method="POST" action="controller.php" enctype="multipart/form-data">
                         <input type="hidden" name="action" value="updateInspection">
                         <input type="hidden" name="vehicle_id" value="<?= htmlspecialchars($vehicle_id) ?>">
 
@@ -59,16 +63,16 @@ if ($vehicle_id) {
                                 }
                                 ?>
                                 <input type="text" class="form-control"
-                                       value="<?= $vehicle_selected ? htmlspecialchars($vehicle_selected['vehicle_no']) : '' ?>"
-                                       readonly>
+                                    value="<?= $vehicle_selected ? htmlspecialchars($vehicle_selected['vehicle_no']) : '' ?>"
+                                    readonly>
                             </div>
 
                             <!-- Branch -->
                             <div class="form-group col-md-6">
                                 <label>Branch</label>
                                 <input type="text" id="branchField" class="form-control"
-                                       value="<?= $vehicle_selected ? 'Branch: ' . htmlspecialchars($vehicle_selected['short_name']) : '' ?>"
-                                       readonly>
+                                    value="<?= $vehicle_selected ? htmlspecialchars($vehicle_selected['short_name']) : '' ?>"
+                                    readonly>
                             </div>
                         </div>
 
@@ -90,6 +94,22 @@ if ($vehicle_id) {
                             <label><input type="radio" name="drivers_cabin" value="Very Clean" <?= ($drivers_cabin == 'Very Clean') ? 'checked' : '' ?>> Very Clean</label>&nbsp;&nbsp;
                             <label><input type="radio" name="drivers_cabin" value="Clean" <?= ($drivers_cabin == 'Clean') ? 'checked' : '' ?>> Clean</label>&nbsp;&nbsp;
                             <label><input type="radio" name="drivers_cabin" value="Soiled/Dirty" <?= ($drivers_cabin == 'Soiled/Dirty') ? 'checked' : '' ?>> Soiled/Dirty</label>
+
+                            <div class="mt-2">
+                                <label class="text-muted">Upload Photo (Driver's Cabin):</label>
+                                <input type="file" class="form-control" name="photo_drivers_cabin" accept="image/*" id="photo_drivers_cabin">
+
+                                <!-- Existing photo -->
+                                <?php if (!empty($inspection['photo_drivers_cabin'])): ?>
+                                    <div class="mt-2">
+                                        <img src="../../uploads/inspection_photos/<?= htmlspecialchars($inspection['photo_drivers_cabin']) ?>" width="150" class="img-thumbnail">
+                                        <p class="text-muted small">Current photo</p>
+                                    </div>
+                                <?php endif; ?>
+
+                                <!-- New preview -->
+                                <div id="preview_drivers_cabin" class="mt-2"></div>
+                            </div>
                         </div>
 
                         <!-- Loading Area -->
@@ -99,6 +119,20 @@ if ($vehicle_id) {
                             <label><input type="radio" name="loading_area" value="Very Clean" <?= ($loading_area == 'Very Clean') ? 'checked' : '' ?>> Very Clean</label>&nbsp;&nbsp;
                             <label><input type="radio" name="loading_area" value="Clean" <?= ($loading_area == 'Clean') ? 'checked' : '' ?>> Clean</label>&nbsp;&nbsp;
                             <label><input type="radio" name="loading_area" value="Dirty" <?= ($loading_area == 'Dirty') ? 'checked' : '' ?>> Dirty</label>
+
+                            <div class="mt-2">
+                                <label class="text-muted">Upload Photo (Loading Area):</label>
+                                <input type="file" class="form-control" name="photo_loading_area" accept="image/*" id="photo_loading_area">
+
+                                <?php if (!empty($inspection['photo_loading_area'])): ?>
+                                    <div class="mt-2">
+                                        <img src="../../uploads/inspection_photos/<?= htmlspecialchars($inspection['photo_loading_area']) ?>" width="150" class="img-thumbnail">
+                                        <p class="text-muted small">Current photo</p>
+                                    </div>
+                                <?php endif; ?>
+
+                                <div id="preview_loading_area" class="mt-2"></div>
+                            </div>
                         </div>
 
                         <!-- Exterior -->
@@ -109,6 +143,20 @@ if ($vehicle_id) {
                             <label><input type="radio" name="exterior" value="Polish" <?= ($exterior == 'Polish') ? 'checked' : '' ?>> Polish</label>&nbsp;&nbsp;
                             <label><input type="radio" name="exterior" value="Body shop" <?= ($exterior == 'Body shop') ? 'checked' : '' ?>> Body shop</label>&nbsp;&nbsp;
                             <label><input type="radio" name="exterior" value="Missing body parts" <?= ($exterior == 'Missing body parts') ? 'checked' : '' ?>> Missing body parts</label>
+
+                            <div class="mt-2">
+                                <label class="text-muted">Upload Photo (Exterior):</label>
+                                <input type="file" class="form-control" name="photo_exterior" accept="image/*" id="photo_exterior">
+
+                                <?php if (!empty($inspection['photo_exterior'])): ?>
+                                    <div class="mt-2">
+                                        <img src="../../uploads/inspection_photos/<?= htmlspecialchars($inspection['photo_exterior']) ?>" width="150" class="img-thumbnail">
+                                        <p class="text-muted small">Current photo</p>
+                                    </div>
+                                <?php endif; ?>
+
+                                <div id="preview_exterior" class="mt-2"></div>
+                            </div>
                         </div>
 
                         <!-- Mechanical -->
@@ -151,3 +199,27 @@ if ($vehicle_id) {
         </div>
     </div>
 </section>
+
+<!-- Live Image Preview Script -->
+<script>
+    function previewImage(inputId, previewId) {
+        const input = document.getElementById(inputId);
+        const preview = document.getElementById(previewId);
+
+        input.addEventListener('change', function() {
+            preview.innerHTML = '';
+            const file = this.files[0];
+            if (file) {
+                const img = document.createElement('img');
+                img.src = URL.createObjectURL(file);
+                img.classList.add('img-thumbnail');
+                img.style.width = '150px';
+                preview.appendChild(img);
+            }
+        });
+    }
+
+    previewImage('photo_drivers_cabin', 'preview_drivers_cabin');
+    previewImage('photo_loading_area', 'preview_loading_area');
+    previewImage('photo_exterior', 'preview_exterior');
+</script>

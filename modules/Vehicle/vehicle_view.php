@@ -221,6 +221,12 @@ if (!empty($vehicle['assigned_staff'])) {
                     <label><input type="radio" name="drivers_cabin" value="Very Clean" <?php echo (isset($lastInspection['drivers_cabin']) && $lastInspection['drivers_cabin'] == 'Very Clean') ? 'checked' : ''; ?> disabled> Very Clean</label>&nbsp;&nbsp;
                     <label><input type="radio" name="drivers_cabin" value="Clean" <?php echo (isset($lastInspection['drivers_cabin']) && $lastInspection['drivers_cabin'] == 'Clean') ? 'checked' : ''; ?> disabled> Clean</label>&nbsp;&nbsp;
                     <label><input type="radio" name="drivers_cabin" value="Soiled/Dirty" <?php echo (isset($lastInspection['drivers_cabin']) && $lastInspection['drivers_cabin'] == 'Soiled/Dirty') ? 'checked' : ''; ?> disabled> Soiled/Dirty</label>
+                    <div class="mt-2">
+                        <label class="text-muted">Upload Photo (Driver's Cabin):</label><br>
+                         <?php if (!empty($lastInspection['photo_loading_area'])): ?>
+                    <img src="../../uploads/inspection_photos/<?= htmlspecialchars($lastInspection['photo_loading_area']); ?>" class="img-thumbnail mt-2" style="width:150px;">
+                <?php endif; ?>
+                    </div>
                 </div>
 
                 <!-- Loading Area -->
@@ -229,6 +235,12 @@ if (!empty($vehicle['assigned_staff'])) {
                     <label><input type="radio" name="loading_area" value="Very Clean" <?php echo (isset($lastInspection['loading_area']) && $lastInspection['loading_area'] == 'Very Clean') ? 'checked' : ''; ?> disabled> Very Clean</label>&nbsp;&nbsp;
                     <label><input type="radio" name="loading_area" value="Clean" <?php echo (isset($lastInspection['loading_area']) && $lastInspection['loading_area'] == 'Clean') ? 'checked' : ''; ?> disabled> Clean</label>&nbsp;&nbsp;
                     <label><input type="radio" name="loading_area" value="Dirty" <?php echo (isset($lastInspection['loading_area']) && $lastInspection['loading_area'] == 'Dirty') ? 'checked' : ''; ?> disabled> Dirty</label>
+                    <div class="mt-2">
+                        <label class="text-muted">Upload Photo (Loading Area):</label><br>
+                         <?php if (!empty($lastInspection['photo_exterior'])): ?>
+                    <img src="../../uploads/inspection_photos/<?= htmlspecialchars($lastInspection['photo_exterior']); ?>" class="img-thumbnail mt-2" style="width:150px;">
+                <?php endif; ?>
+                    </div>
                 </div>
 
                 <!-- Exterior -->
@@ -238,6 +250,12 @@ if (!empty($vehicle['assigned_staff'])) {
                     <label><input type="radio" name="exterior" value="Polish" <?php echo (isset($lastInspection['exterior']) && $lastInspection['exterior'] == 'Polish') ? 'checked' : ''; ?> disabled> Polish</label>&nbsp;&nbsp;
                     <label><input type="radio" name="exterior" value="Body shop" <?php echo (isset($lastInspection['exterior']) && $lastInspection['exterior'] == 'Body shop') ? 'checked' : ''; ?> disabled> Body shop</label>&nbsp;&nbsp;
                     <label><input type="radio" name="exterior" value="Missing body parts" <?php echo (isset($lastInspection['exterior']) && $lastInspection['exterior'] == 'Missing body parts') ? 'checked' : ''; ?> disabled> Missing body parts</label>
+                    <div class="mt-2">
+                        <label class="text-muted">Upload Photo (Exterior):</label><br>
+                        <?php if (!empty($lastInspection['photo_exterior'])): ?>
+                    <img src="../../uploads/inspection_photos/<?= htmlspecialchars($lastInspection['photo_exterior']); ?>" class="img-thumbnail mt-2" style="width:150px;">
+                <?php endif; ?>
+                    </div>
                 </div>
 
                 <!-- Mechanical -->

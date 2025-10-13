@@ -175,7 +175,7 @@ function save_vehicle()
         $vehicle_no = trim($_POST['vehicle_no'] ?? '');
         $registrationNumber = trim($_POST['registrationNumber'] ?? '');
 
-    //  Check for duplicates (by vehicle_no or registrationNumber)
+        //  Check for duplicates (by vehicle_no or registrationNumber)
         $check = $conn->prepare("SELECT COUNT(*) 
                                  FROM vehicle_details_tbl 
                                  WHERE vehicle_no = :vehicle_no OR registrationNumber = :registrationNumber");
@@ -538,6 +538,55 @@ function getAssignedBranchId($conn, $user_id)
 }
 
 // Function is used to save inspection
+// function saveInspection($conn, $data)
+// {
+//     // Sanitize inputs
+//     $vehicle_id = intval($data['vehicle_id']);
+//     $tyres = htmlspecialchars($data['tyres']);
+//     $drivers_cabin = htmlspecialchars($data['drivers_cabin']);
+//     $loading_area = htmlspecialchars($data['loading_area']);
+//     $exterior = htmlspecialchars($data['exterior']);
+//     $mechanical = htmlspecialchars($data['mechanical']);
+//     $comments = htmlspecialchars($data['comments']);
+//     $test_driven = htmlspecialchars($data['test_driven']);
+//     $test_drive_comments = htmlspecialchars($data['test_drive_comments']);
+//     // $inspection_by = htmlspecialchars($data['inspection_by']);
+
+//     try {
+//         //  Check if vehicle already has an inspection
+//         $check = $conn->prepare("SELECT COUNT(*) FROM vehicle_inspection_tbl WHERE vehicle_id = :vehicle_id");
+//         $check->execute([':vehicle_id' => $vehicle_id]);
+//         $exists = $check->fetchColumn();
+
+//         if ($exists > 0) {
+//             // Already inspected
+//             echo "<script>alert('Inspection already done for this vehicle!'); window.location='index.php?view=view_van_list';</script>";
+//             return;
+//         }
+
+//         // Insert new inspection
+//         $stmt = $conn->prepare("INSERT INTO vehicle_inspection_tbl 
+//             (vehicle_id, tyres, drivers_cabin, loading_area, exterior, mechanical, comments, test_driven, test_drive_comments, inspection_by, inspection_date)
+//             VALUES (:vehicle_id, :tyres, :drivers_cabin, :loading_area, :exterior, :mechanical, :comments, :test_driven, :test_drive_comments, :inspection_by, NOW())");
+
+//         $stmt->execute([
+//             ':vehicle_id' => $vehicle_id,
+//             ':tyres' => $tyres,
+//             ':drivers_cabin' => $drivers_cabin,
+//             ':loading_area' => $loading_area,
+//             ':exterior' => $exterior,
+//             ':mechanical' => $mechanical,
+//             ':comments' => $comments,
+//             ':test_driven' => $test_driven,
+//             ':test_drive_comments' => $test_drive_comments,
+//             // ':inspection_by' => $inspection_by
+//         ]);
+
+//         echo "<script>alert('Inspection saved successfully!'); window.location='index.php?view=view_van_list';</script>";
+//     } catch (PDOException $e) {
+//         return ['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()];
+//     }
+// }
 function saveInspection($conn, $data)
 {
     // Sanitize inputs
@@ -550,24 +599,50 @@ function saveInspection($conn, $data)
     $comments = htmlspecialchars($data['comments']);
     $test_driven = htmlspecialchars($data['test_driven']);
     $test_drive_comments = htmlspecialchars($data['test_drive_comments']);
-    // $inspection_by = htmlspecialchars($data['inspection_by']);
+    $inspection_by = $_SESSION['acct_id'] ?? 0; // logged-in staff ID
 
     try {
-        //  Check if vehicle already has an inspection
+        // --- Check if inspection already exists ---
         $check = $conn->prepare("SELECT COUNT(*) FROM vehicle_inspection_tbl WHERE vehicle_id = :vehicle_id");
         $check->execute([':vehicle_id' => $vehicle_id]);
-        $exists = $check->fetchColumn();
-
-        if ($exists > 0) {
-            // Already inspected
+        if ($check->fetchColumn() > 0) {
             echo "<script>alert('Inspection already done for this vehicle!'); window.location='index.php?view=view_van_list';</script>";
             return;
         }
 
-        // Insert new inspection
-        $stmt = $conn->prepare("INSERT INTO vehicle_inspection_tbl 
-            (vehicle_id, tyres, drivers_cabin, loading_area, exterior, mechanical, comments, test_driven, test_drive_comments, inspection_by, inspection_date)
-            VALUES (:vehicle_id, :tyres, :drivers_cabin, :loading_area, :exterior, :mechanical, :comments, :test_driven, :test_drive_comments, :inspection_by, NOW())");
+        // --- Upload directory setup ---
+        $uploadDir = "../../uploads/inspection_photos/";
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0777, true);
+        }
+
+        // --- Helper function for file upload ---
+        function uploadPhoto($fieldName, $uploadDir)
+        {
+            if (!empty($_FILES[$fieldName]['name'])) {
+                $filename = time() . '_' . preg_replace("/[^a-zA-Z0-9._-]/", "_", basename($_FILES[$fieldName]['name']));
+                $targetPath = $uploadDir . $filename;
+                if (move_uploaded_file($_FILES[$fieldName]['tmp_name'], $targetPath)) {
+                    return $filename;
+                }
+            }
+            return null;
+        }
+
+        // --- Handle each photo upload ---
+        $photo_drivers_cabin = uploadPhoto('photo_drivers_cabin', $uploadDir);
+        $photo_loading_area  = uploadPhoto('photo_loading_area', $uploadDir);
+        $photo_exterior      = uploadPhoto('photo_exterior', $uploadDir);
+
+        // --- Insert into table ---
+        $stmt = $conn->prepare("
+            INSERT INTO vehicle_inspection_tbl 
+            (vehicle_id, tyres, drivers_cabin, loading_area, exterior, mechanical, comments, 
+             test_driven, test_drive_comments, photo_drivers_cabin, photo_loading_area, photo_exterior, inspection_by, inspection_date)
+            VALUES 
+            (:vehicle_id, :tyres, :drivers_cabin, :loading_area, :exterior, :mechanical, :comments, 
+             :test_driven, :test_drive_comments, :photo_drivers_cabin, :photo_loading_area, :photo_exterior, :inspection_by, NOW())
+        ");
 
         $stmt->execute([
             ':vehicle_id' => $vehicle_id,
@@ -579,17 +654,74 @@ function saveInspection($conn, $data)
             ':comments' => $comments,
             ':test_driven' => $test_driven,
             ':test_drive_comments' => $test_drive_comments,
-            // ':inspection_by' => $inspection_by
+            ':photo_drivers_cabin' => $photo_drivers_cabin,
+            ':photo_loading_area' => $photo_loading_area,
+            ':photo_exterior' => $photo_exterior,
+            ':inspection_by' => $inspection_by
         ]);
 
         echo "<script>alert('Inspection saved successfully!'); window.location='index.php?view=view_van_list';</script>";
     } catch (PDOException $e) {
-        return ['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()];
+        echo "<script>alert('Error: " . addslashes($e->getMessage()) . "'); window.history.back();</script>";
     }
 }
 
 
+
 // This function is used to update inspection 
+// function updateInspection($conn, $data)
+// {
+//     $vehicle_id = $data['vehicle_id'] ?? 0;
+
+//     if (empty($vehicle_id)) {
+//         return ['status' => 'error', 'message' => 'Invalid Vehicle ID'];
+//     }
+
+//     $tyres               = $data['tyres'] ?? '';
+//     $drivers_cabin       = $data['drivers_cabin'] ?? '';
+//     $loading_area        = $data['loading_area'] ?? '';
+//     $exterior            = $data['exterior'] ?? '';
+//     $mechanical          = $data['mechanical'] ?? '';
+//     $comments            = $data['comments'] ?? '';
+//     $test_driven         = $data['test_driven'] ?? '';
+//     $test_drive_comments = $data['test_drive_comments'] ?? '';
+//     $inspection_by       = $data['inspection_by'] ?? null; // optional
+
+//     try {
+//         $stmt = $conn->prepare("
+//             UPDATE vehicle_inspection_tbl 
+//             SET 
+//                 tyres               = :tyres,
+//                 drivers_cabin       = :drivers_cabin,
+//                 loading_area        = :loading_area,
+//                 exterior            = :exterior,
+//                 mechanical          = :mechanical,
+//                 comments            = :comments,
+//                 test_driven         = :test_driven,
+//                 test_drive_comments = :test_drive_comments,
+//                 inspection_by       = :inspection_by
+//             WHERE vehicle_id = :vehicle_id
+//         ");
+
+//         $stmt->execute([
+//             ':vehicle_id'          => $vehicle_id,
+//             ':tyres'               => $tyres,
+//             ':drivers_cabin'       => $drivers_cabin,
+//             ':loading_area'        => $loading_area,
+//             ':exterior'            => $exterior,
+//             ':mechanical'          => $mechanical,
+//             ':comments'            => $comments,
+//             ':test_driven'         => $test_driven,
+//             ':test_drive_comments' => $test_drive_comments,
+//             ':inspection_by'       => $inspection_by
+//         ]);
+
+//         echo "<script>alert('Inspection updated successfully!'); window.location='index.php?view=view_van_list';</script>";
+//         exit;
+//     } catch (PDOException $e) {
+//         return ['status' => 'error', 'message' => $e->getMessage()];
+//     }
+// }
 function updateInspection($conn, $data)
 {
     $vehicle_id = $data['vehicle_id'] ?? 0;
@@ -598,17 +730,51 @@ function updateInspection($conn, $data)
         return ['status' => 'error', 'message' => 'Invalid Vehicle ID'];
     }
 
-    $tyres               = $data['tyres'] ?? '';
-    $drivers_cabin       = $data['drivers_cabin'] ?? '';
-    $loading_area        = $data['loading_area'] ?? '';
-    $exterior            = $data['exterior'] ?? '';
-    $mechanical          = $data['mechanical'] ?? '';
-    $comments            = $data['comments'] ?? '';
-    $test_driven         = $data['test_driven'] ?? '';
-    $test_drive_comments = $data['test_drive_comments'] ?? '';
-    $inspection_by       = $data['inspection_by'] ?? null; // optional
+    $tyres               = htmlspecialchars($data['tyres'] ?? '');
+    $drivers_cabin       = htmlspecialchars($data['drivers_cabin'] ?? '');
+    $loading_area        = htmlspecialchars($data['loading_area'] ?? '');
+    $exterior            = htmlspecialchars($data['exterior'] ?? '');
+    $mechanical          = htmlspecialchars($data['mechanical'] ?? '');
+    $comments            = htmlspecialchars($data['comments'] ?? '');
+    $test_driven         = htmlspecialchars($data['test_driven'] ?? '');
+    $test_drive_comments = htmlspecialchars($data['test_drive_comments'] ?? '');
+    $inspection_by       = $_SESSION['acct_id'] ?? ($data['inspection_by'] ?? null);
 
     try {
+        // --- Directory for uploads ---
+        $uploadDir = "../../uploads/inspection_photos/";
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0777, true);
+        }
+
+        // --- Helper: Upload and rename photo safely ---
+        function uploadPhotoUpdate($fieldName, $uploadDir, $existingFile = null)
+        {
+            if (!empty($_FILES[$fieldName]['name'])) {
+                $filename = time() . '_' . preg_replace("/[^a-zA-Z0-9._-]/", "_", basename($_FILES[$fieldName]['name']));
+                $targetPath = $uploadDir . $filename;
+                if (move_uploaded_file($_FILES[$fieldName]['tmp_name'], $targetPath)) {
+                    // Delete old file if exists
+                    if (!empty($existingFile) && file_exists($uploadDir . $existingFile)) {
+                        unlink($uploadDir . $existingFile);
+                    }
+                    return $filename;
+                }
+            }
+            return $existingFile; // keep old if no new file uploaded
+        }
+
+        // --- Fetch existing photo filenames ---
+        $stmt = $conn->prepare("SELECT photo_drivers_cabin, photo_loading_area, photo_exterior FROM vehicle_inspection_tbl WHERE vehicle_id = :vehicle_id");
+        $stmt->execute([':vehicle_id' => $vehicle_id]);
+        $existing = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        // --- Update photo fields if new files uploaded ---
+        $photo_drivers_cabin = uploadPhotoUpdate('photo_drivers_cabin', $uploadDir, $existing['photo_drivers_cabin'] ?? null);
+        $photo_loading_area  = uploadPhotoUpdate('photo_loading_area', $uploadDir, $existing['photo_loading_area'] ?? null);
+        $photo_exterior      = uploadPhotoUpdate('photo_exterior', $uploadDir, $existing['photo_exterior'] ?? null);
+
+        // --- Update inspection record ---
         $stmt = $conn->prepare("
             UPDATE vehicle_inspection_tbl 
             SET 
@@ -620,7 +786,11 @@ function updateInspection($conn, $data)
                 comments            = :comments,
                 test_driven         = :test_driven,
                 test_drive_comments = :test_drive_comments,
-                inspection_by       = :inspection_by
+                photo_drivers_cabin = :photo_drivers_cabin,
+                photo_loading_area  = :photo_loading_area,
+                photo_exterior      = :photo_exterior,
+                inspection_by       = :inspection_by,
+                inspection_date     = NOW()
             WHERE vehicle_id = :vehicle_id
         ");
 
@@ -634,13 +804,16 @@ function updateInspection($conn, $data)
             ':comments'            => $comments,
             ':test_driven'         => $test_driven,
             ':test_drive_comments' => $test_drive_comments,
+            ':photo_drivers_cabin' => $photo_drivers_cabin,
+            ':photo_loading_area'  => $photo_loading_area,
+            ':photo_exterior'      => $photo_exterior,
             ':inspection_by'       => $inspection_by
         ]);
 
         echo "<script>alert('Inspection updated successfully!'); window.location='index.php?view=view_van_list';</script>";
         exit;
     } catch (PDOException $e) {
-        return ['status' => 'error', 'message' => $e->getMessage()];
+        return ['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()];
     }
 }
 
@@ -662,7 +835,8 @@ function updateInspection($conn, $data)
 //     $stmt->execute();
 //     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 // }
-function listVehiclescount($conn, $start = 0, $limit = 10, $search = '') {
+function listVehiclescount($conn, $start = 0, $limit = 10, $search = '')
+{
     try {
         $user_id = $_SESSION['acct_id'] ?? 0;
         $user_type = $_SESSION['type'] ?? '';
@@ -723,7 +897,8 @@ function listVehiclescount($conn, $start = 0, $limit = 10, $search = '') {
 //     return $row['total'] ?? 0;
 // }
 
-function totalVehicles($conn, $search = '') {
+function totalVehicles($conn, $search = '')
+{
     try {
         $user_id = $_SESSION['acct_id'] ?? 0;
         $user_type = $_SESSION['type'] ?? '';

@@ -64,9 +64,8 @@ if (!empty($_GET['vehicle_no'])) {
                 <div class="box-header with-border">
                     <h3 class="box-title">Inspection Form</h3>
                 </div>
-
                 <div class="box-body">
-                    <form method="POST" action="controller.php">
+                    <form method="POST" action="controller.php" enctype="multipart/form-data">
                         <input type="hidden" name="action" value="saveInspection">
 
                         <div class="row">
@@ -93,8 +92,7 @@ if (!empty($_GET['vehicle_no'])) {
                             <div class="form-group col-md-6">
                                 <label>Branch</label>
                                 <input type="text" id="branchField" class="form-control"
-                                    value="<?= $vehicle_selected ? 'Branch: ' . $vehicle_selected['branch_id'] : '' ?>"
-                                    readonly>
+                                    value="<?= $vehicle_selected ? 'Branch: ' . $vehicle_selected['branch_id'] : '' ?>" readonly>
                             </div>
                         </div>
 
@@ -114,6 +112,12 @@ if (!empty($_GET['vehicle_no'])) {
                             <label><input type="radio" name="drivers_cabin" value="Very Clean" required> Very Clean</label>&nbsp;&nbsp;
                             <label><input type="radio" name="drivers_cabin" value="Clean"> Clean</label>&nbsp;&nbsp;
                             <label><input type="radio" name="drivers_cabin" value="Soiled/Dirty"> Soiled/Dirty</label>
+
+                            <div class="mt-2">
+                                <label class="text-muted">Upload Photo (Driver's Cabin):</label>
+                                <input type="file" class="form-control" name="photo_drivers_cabin" accept="image/*" id="photo_drivers_cabin">
+                                <div class="preview mt-2" id="preview_drivers_cabin"></div>
+                            </div>
                         </div>
 
                         <!-- Loading Area -->
@@ -122,6 +126,12 @@ if (!empty($_GET['vehicle_no'])) {
                             <label><input type="radio" name="loading_area" value="Very Clean" required> Very Clean</label>&nbsp;&nbsp;
                             <label><input type="radio" name="loading_area" value="Clean"> Clean</label>&nbsp;&nbsp;
                             <label><input type="radio" name="loading_area" value="Dirty"> Dirty</label>
+
+                            <div class="mt-2">
+                                <label class="text-muted">Upload Photo (Loading Area):</label>
+                                <input type="file" class="form-control" name="photo_loading_area" accept="image/*" id="photo_loading_area">
+                                <div class="preview mt-2" id="preview_loading_area"></div>
+                            </div>
                         </div>
 
                         <!-- Exterior -->
@@ -131,6 +141,12 @@ if (!empty($_GET['vehicle_no'])) {
                             <label><input type="radio" name="exterior" value="Polish"> Polish</label>&nbsp;&nbsp;
                             <label><input type="radio" name="exterior" value="Body shop"> Body shop</label>&nbsp;&nbsp;
                             <label><input type="radio" name="exterior" value="Missing body parts"> Missing body parts</label>
+
+                            <div class="mt-2">
+                                <label class="text-muted">Upload Photo (Exterior):</label>
+                                <input type="file" class="form-control" name="photo_exterior" accept="image/*" id="photo_exterior">
+                                <div class="preview mt-2" id="preview_exterior"></div>
+                            </div>
                         </div>
 
                         <!-- Mechanical -->
@@ -160,43 +176,6 @@ if (!empty($_GET['vehicle_no'])) {
                             <textarea name="test_drive_comments" class="form-control" rows="2" placeholder="Capture any feedback or comments..."></textarea>
                         </div>
 
-                        <!-- Inspector -->
-                        <!-- <div class="form-group">
-                            <label>Inspection By <span style="color:red">*</span></label>
-                            <input type="text" name="inspection_by" class="form-control" placeholder="Enter your name" required>
-                        </div> -->
-
-                        <!-- Assign Staff -->
-                        <?php if ($_SESSION['type'] == 'Administrator') { ?>
-                            <!-- <div class="col-md-6"> -->
-                            <!-- <div class="form-group">
-                                    <label>Assign Staff <span style="color:red">*</span></label>
-                                    <select class="form-control input-sm" name="assigned_staff" required>
-                                        <option value="">Select Mechanics</option>
-                                        <?php
-                                        $stmt = $conn->prepare("SELECT acct_id, username FROM accounts WHERE type = 'Non-Administrator' ORDER BY username ASC");
-                                        $stmt->execute();
-                                        $staffList = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                                        foreach ($staffList as $staff) {
-                                            echo '<option value="' . htmlspecialchars($staff['acct_id']) . '">' . htmlspecialchars($staff['username']) . '</option>';
-                                        }
-                                        ?>
-                                    </select>
-                                </div> -->
-                            <!-- </div> -->
-                        <?php } else {
-                            // For non-admins, use session's acct_id and username
-                            // $assigned_staff_id = $_SESSION['acct_id'];
-                            // $assigned_staff_name = $_SESSION['username']; // assuming you store this
-                        ?>
-
-                            <!-- <div class="form-group"> -->
-                            <!-- <label>Assign Staff <span style="color:red">*</span></label> -->
-                            <!-- <input type="text" class="form-control" value="<?php echo htmlspecialchars($assigned_staff_name); ?>" readonly> -->
-                            <!-- <input type="hidden" name="assigned_staff" value="<?php echo htmlspecialchars($assigned_staff_id); ?>"> -->
-                            <!-- </div> -->
-                        <?php } ?>
-
                         <!-- Submit -->
                         <div class="form-group text-end">
                             <button type="submit" class="btn btn-success">Save Inspection</button>
@@ -204,6 +183,7 @@ if (!empty($_GET['vehicle_no'])) {
                         </div>
                     </form>
                 </div>
+
             </div>
         </div>
     </div>
@@ -246,4 +226,28 @@ if (!empty($_GET['vehicle_no'])) {
         // Trigger change on page load if vehicle is pre-selected
         if (vehicleSelect.value) vehicleSelect.dispatchEvent(new Event('change'));
     }
+
+    function previewImage(inputId, previewId) {
+        const input = document.getElementById(inputId);
+        const preview = document.getElementById(previewId);
+
+        if (!input || !preview) return;
+
+        input.addEventListener('change', function() {
+            preview.innerHTML = '';
+            const file = this.files[0];
+            if (file) {
+                const img = document.createElement('img');
+                img.src = URL.createObjectURL(file);
+                img.classList.add('img-thumbnail');
+                img.style.maxWidth = '200px';
+                img.style.marginTop = '5px';
+                preview.appendChild(img);
+            }
+        });
+    }
+
+    previewImage('photo_drivers_cabin', 'preview_drivers_cabin');
+    previewImage('photo_loading_area', 'preview_loading_area');
+    previewImage('photo_exterior', 'preview_exterior');
 </script>
