@@ -93,6 +93,41 @@ $all_staff = $staffQuery->fetchAll(PDO::FETCH_ASSOC);
     .bold-select {
         font-weight: bold;
     }
+
+    .thumb-img {
+        width: 250px;
+        height: 250px;
+        object-fit: cover;
+        cursor: pointer;
+    }
+
+    .img-modal {
+        display: none;
+        position: fixed;
+        z-index: 9999;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.8);
+    }
+
+    .img-modal-content {
+        margin: auto;
+        display: block;
+        max-width: 60%;
+        max-height: 50%;
+        margin-top: 10%;
+    }
+
+    .img-modal-close {
+        position: absolute;
+        top: 20px;
+        right: 30px;
+        color: white;
+        font-size: 30px;
+        cursor: pointer;
+    }
 </style>
 <!-- Content Header -->
 <section class="content-header">
@@ -153,7 +188,7 @@ $all_staff = $staffQuery->fetchAll(PDO::FETCH_ASSOC);
                     <!-- <p><strong>Vehicle Age:</strong>
                         <?= htmlspecialchars($vehicle['vehicleAge']) ?>
                     </p> -->
-                    
+
                 </div>
 
 
@@ -287,13 +322,18 @@ $all_staff = $staffQuery->fetchAll(PDO::FETCH_ASSOC);
                         <div class="col-md-4">
                             <div class="box box-solid">
                                 <div class="box-body text-center">
+                                    <!-- <img src="../../uploads/vehicles/<?php echo htmlspecialchars($img['image_path']); ?>"
+                                        alt="<?php echo htmlspecialchars($img['image_label']); ?>"
+                                        class="img-responsive img-thumbnail"> -->
                                     <img src="../../uploads/vehicles/<?php echo htmlspecialchars($img['image_path']); ?>"
                                         alt="<?php echo htmlspecialchars($img['image_label']); ?>"
-                                        class="img-responsive img-thumbnail">
-                                    <h5 class="mt-2">
+                                        class="img-thumbnail thumb-img"
+                                        onclick="openImageModal(this)">
+
+                                    <!-- <h5 class="mt-2">
                                         <strong><?php echo htmlspecialchars($img['image_label']); ?></strong>
-                                    </h5>
-                                    <p class="text-muted"><?php echo htmlspecialchars($img['image_description']); ?></p>
+                                    </h5> -->
+                                    <!-- <p class="text-muted"><?php echo htmlspecialchars($img['image_description']); ?></p> -->
                                 </div>
                             </div>
                         </div>
@@ -304,6 +344,16 @@ $all_staff = $staffQuery->fetchAll(PDO::FETCH_ASSOC);
             <?php endif; ?>
         </div>
     </div>
+
+
+    <div id="imgModal" class="img-modal">
+        <span class="img-modal-close" onclick="closeImageModal()">&times;</span>
+        <img id="modalImg" class="img-modal-content">
+    </div>
+
+
+
+
 
 
     <!-- Inspection Tests -->
@@ -543,6 +593,16 @@ $all_staff = $staffQuery->fetchAll(PDO::FETCH_ASSOC);
 
 </section>
 <script>
+    function openImageModal(img) {
+        document.getElementById("imgModal").style.display = "block";
+        document.getElementById("modalImg").src = img.src;
+    }
+
+    function closeImageModal() {
+        document.getElementById("imgModal").style.display = "none";
+    }
+
+
     function showStaffEdit() {
         document.getElementById('staffEditBox').style.display = 'block';
     }
