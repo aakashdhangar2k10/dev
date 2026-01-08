@@ -176,7 +176,7 @@ $images = $imgStmt->fetchAll(PDO::FETCH_ASSOC);
                                             <!-- <input type="file" name="vehicle_images[]" class="form-control image-file" accept="image/*"> -->
                                             <input type="file" name="vehicle_images[]" class="form-control image-file" accept="image/*" capture="camera">
                                         </div>
-                                        <div class="col-md-2">
+                                        <!-- <div class="col-md-2">
                                             <select name="image_label_new[]" class="form-control image-label">
                                                 <option value="">-- Select Label --</option>
                                                 <option value="front">Front View</option>
@@ -189,10 +189,10 @@ $images = $imgStmt->fetchAll(PDO::FETCH_ASSOC);
                                                 <option value="insurance">Insurance</option>
                                                 <option value="other">Other</option>
                                             </select>
-                                        </div>
-                                        <div class="col-md-3">
+                                        </div> -->
+                                        <!-- <div class="col-md-3">
                                             <input type="text" name="image_description_new[]" class="form-control image-desc" placeholder="Enter custom description">
-                                        </div>
+                                        </div> -->
                                         <div class="col-md-2">
                                             <button type="button" class="btn btn-danger removeImageRow"><i class="fa fa-trash"></i> Remove</button>
                                         </div>
@@ -255,23 +255,6 @@ $images = $imgStmt->fetchAll(PDO::FETCH_ASSOC);
                 const newRow = `<div class="image-row row">
   <div class="col-md-3">
       <input type="file" name="vehicle_images[]" class="form-control image-file" accept="image/*" capture="camera">
-  </div>
-  <div class="col-md-2">
-      <select name="image_label_new[]" class="form-control image-label">
-          <option value="">-- Select Label --</option>
-          <option value="front">Front View</option>
-          <option value="back">Back View</option>
-          <option value="left">Left Side</option>
-          <option value="right">Right Side</option>
-          <option value="interior">Interior</option>
-          <option value="Loading area">Loading area</option>
-          <option value="rc">RC Book</option>
-          <option value="insurance">Insurance</option>
-          <option value="other">Other</option>
-      </select>
-  </div>
-  <div class="col-md-3">
-      <input type="text" name="image_description_new[]" class="form-control image-desc" placeholder="Enter custom description">
   </div>
   <div class="col-md-2">
       <button type="button" class="btn btn-danger removeImageRow"><i class="fa fa-trash"></i> Remove</button>
