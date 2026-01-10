@@ -200,3 +200,94 @@ async function sharePdfFile(pdfUrl,fileName){
   }
 }
 </script>
+<?php
+// include('db_connection.php'); // PDO connection
+include('../../includes/db.php'); // must define $conn = new PDO(...)
+
+$page  = isset($_POST['page']) ? (int)$_POST['page'] : 5;
+$limit = isset($_POST['limit']) ? (int)$_POST['limit'] : 10;
+$offset = ($page - 1) * $limit;
+
+$search = $_POST['search'] ?? '';
+$vehicle_no = $_POST['vehicle_no'] ?? '';
+// $owner_name = $_POST['owner_name'] ?? '';
+// $vehicle_type = $_POST['vehicle_type'] ?? '';
+// $from_date = $_POST['from_date'] ?? '';
+// $to_date = $_POST['to_date'] ?? '';
+
+$orderBy = $_POST['order_by'] ?? 'id';
+
+$allowedColumns = ['id','vehicle_no','created_at'];
+if (!in_array($orderBy, $allowedColumns)) {
+    $orderBy = 'id';
+}
+
+$where = " WHERE flagged IN (0,1) ";
+$params = [];
+
+/* 🔍 Global Search */
+if ($search) {
+    $where .= " AND (
+        vehicle_no LIKE :search 
+    )";
+    $params[':search'] = "%$search%";
+}
+
+/* 🔍 Column Search */
+if ($vehicle_no) {
+    $where .= " AND vehicle_no LIKE :vehicle_no";
+    $params[':vehicle_no'] = "%$vehicle_no%";
+}
+
+// if ($owner_name) {
+//     $where .= " AND owner_name LIKE :owner_name";
+//     $params[':owner_name'] = "%$owner_name%";
+// }
+
+// if ($vehicle_type) {
+//     $where .= " AND vehicle_type = :vehicle_type";
+//     $params[':vehicle_type'] = $vehicle_type;
+// }
+
+/* 📅 Date Filter */
+// if ($from_date && $to_date) {
+//     $where .= " AND DATE(created_at) BETWEEN :from_date AND :to_date";
+//     $params[':from_date'] = $from_date;
+//     $params[':to_date'] = $to_date;
+// }
+
+/* 🔢 Total Count */
+$countStmt = $conn->prepare("SELECT COUNT(*) FROM vehicle_details_tbl $where");
+$countStmt->execute($params);
+$totalRecords = $countStmt->fetchColumn();
+
+/* 📄 Data Query */
+$dataStmt = $conn->prepare("
+    SELECT *
+    FROM vehicle_details_tbl
+    $where
+    ORDER BY $orderBy
+    LIMIT :offset, :limit
+");
+
+foreach ($params as $k => $v) {
+    $dataStmt->bindValue($k, $v);
+}
+
+$dataStmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+$dataStmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+$dataStmt->execute();
+
+$data = $dataStmt->fetchAll(PDO::FETCH_ASSOC);
+
+/* ✅ JSON RESPONSE */
+header('Content-Type: application/json');
+
+echo json_encode([
+    "status" => true,
+    "page" => $page,
+    "limit" => $limit,
+    "total_records" => $totalRecords,
+    "total_pages" => ceil($totalRecords / $limit),
+    "data" => $data
+], JSON_PRETTY_PRINT);
