@@ -8,9 +8,13 @@
 </section>
 
 <!-- DATA TABLES CSS + JS -->
-<link rel="stylesheet" href="https://cdn.datatables.net/1.10.25/css/jquery.dataTables.min.css">
+<!-- <link rel="stylesheet" href="https://cdn.datatables.net/1.10.25/css/jquery.dataTables.min.css"> -->
+<!-- <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script> -->
+<!-- <script src="https://cdn.datatables.net/1.10.25/js/jquery.dataTables.min.js"></script> -->
+
 <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
 <script src="https://cdn.datatables.net/1.10.25/js/jquery.dataTables.min.js"></script>
+<!-- <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script> -->
 
 <!-- MAIN SECTION -->
 <section class="content">
@@ -44,8 +48,67 @@
             </div>
         </div>
     </div>
+    <div class="modal fade" id="deleteModal">
+  <div class="modal-dialog modal-sm modal-dialog-centered">
+    <div class="modal-content">
+
+      <div class="modal-header bg-red">
+        <button type="button" class="close" data-dismiss="modal">&times;</button>
+        <h4 class="modal-title">
+          <i class="fa fa-trash"></i> Confirm Delete
+        </h4>
+      </div>
+
+      <div class="modal-body text-center">
+        Are you sure you want to delete this vehicle?
+      </div>
+
+      <div class="modal-footer text-center">
+        <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
+          Cancel
+        </button>
+        <button type="button" class="btn btn-danger btn-sm" onclick="confirmDelete()">
+          Yes, Delete
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+
 </section>
 <script>
+let deleteId = null;
+
+function openDeleteModal(id) {
+    deleteId = id;
+    $('#deleteModal').modal('show');
+}
+
+function confirmDelete() {
+    $.ajax({
+        url: "vahan_delete.php",
+        type: "POST",
+        dataType: "json",
+        data: { id: deleteId },
+        success: function (res) {
+            if (res.status === "success") {
+                $('#deleteModal').modal('hide');
+
+                // reload DataTable without page refresh
+                $('#vehicleTable').DataTable().ajax.reload(null, false);
+            } else {
+                alert(res.message);
+            }
+        },
+        error: function () {
+            alert("Server error. Try again.");
+        }
+    });
+}
+
+// For table 
     $(document).ready(function() {
         $('#vehicleTable').DataTable({
             processing: true,
@@ -124,8 +187,12 @@
                         <a href="" download="" target="_blank" class="btn btn-primary btn-sm">
                           <i class="fa fa-download"></i>
                         </a>
-                        <a href="index.php?view=del_vahan&id=${id}" class="btn btn-danger btn-sm" onclick="deleteVahan(${id})">
-                        <i class="fa fa-trash"></i></a>
+                        <a href="javascript:void(0);"
+   class="btn btn-danger btn-sm"
+   onclick="openDeleteModal(${id})">
+   <i class="fa fa-trash"></i>
+</a>
+
 
                         <button class="btn btn-success btn-sm" onclick="sharePdfFile('','')">
                           <i class="fa fa-share-alt"></i>

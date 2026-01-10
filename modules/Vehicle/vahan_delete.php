@@ -1,6 +1,6 @@
 <?php
 header('Content-Type: application/json');
-require_once '../config/db.php'; // adjust path if needed
+include('../../includes/db.php'); // must define $conn = new PDO(...)
 
 if (!isset($_POST['id']) || empty($_POST['id'])) {
     echo json_encode([

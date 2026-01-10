@@ -40,7 +40,8 @@ $orderColumn = $columns[$orderColumnIndex] ?? 'id';
 | Base WHERE Clause
 |--------------------------------------------------------------------------
 */
-$where  = " WHERE flagged IN (0,1) ";
+$delete_status = 0;
+$where  = " WHERE flagged IN (0,1) AND is_deleted = $delete_status ";
 $params = [];
 
 /*
