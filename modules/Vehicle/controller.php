@@ -686,136 +686,136 @@ function updateInspection($conn, $data)
 }
 
 
-function listVehiclescount($conn, $start = 0, $limit = 10, $search = '')
-{
-    try {
-        $user_id = $_SESSION['acct_id'] ?? 0;
-        $user_type = $_SESSION['type'] ?? '';
+// function listVehiclescount($conn, $start = 0, $limit = 10, $search = '')
+// {
+//     try {
+//         $user_id = $_SESSION['acct_id'] ?? 0;
+//         $user_type = $_SESSION['type'] ?? '';
 
-        $params = [];
-        $sql = "
-            SELECT v.*, 
-                   i.inspection_date
-            FROM vehicle_details_tbl v
-            LEFT JOIN vehicle_inspection_tbl i 
-                   ON v.id = i.vehicle_id
-        ";
+//         $params = [];
+//         $sql = "
+//             SELECT v.*, 
+//                    i.inspection_date
+//             FROM vehicle_details_tbl v
+//             LEFT JOIN vehicle_inspection_tbl i 
+//                    ON v.id = i.vehicle_id
+//         ";
 
-        if ($user_type !== 'Administrator') {
-            // Non-admin: only vehicles for assigned branch and staff
-            $branch_id = getAssignedBranchId($conn, $user_id);
-            $sql .= " WHERE v.branch_id = :branch_id AND v.assigned_staff = :user_id";
-            $params[':branch_id'] = $branch_id;
-            $params[':user_id'] = $user_id;
+//         if ($user_type !== 'Administrator') {
+//             // Non-admin: only vehicles for assigned branch and staff
+//             $branch_id = getAssignedBranchId($conn, $user_id);
+//             $sql .= " WHERE v.branch_id = :branch_id AND v.assigned_staff = :user_id";
+//             $params[':branch_id'] = $branch_id;
+//             $params[':user_id'] = $user_id;
 
-            if ($search) {
-                $sql .= " AND (v.registrationNumber LIKE :s 
-                          OR v.make LIKE :s 
-                          OR v.model LIKE :s 
-                          OR v.colour LIKE :s)";
-                $params[':s'] = "%$search%";
-            }
-        } else {
-            // Admin: all vehicles with search
-            if ($search) {
-                $sql .= " WHERE v.registrationNumber LIKE :s 
-                          OR v.make LIKE :s 
-                          OR v.model LIKE :s 
-                          OR v.colour LIKE :s";
-                $params[':s'] = "%$search%";
-            }
-        }
+//             if ($search) {
+//                 $sql .= " AND (v.registrationNumber LIKE :s 
+//                           OR v.make LIKE :s 
+//                           OR v.model LIKE :s 
+//                           OR v.colour LIKE :s)";
+//                 $params[':s'] = "%$search%";
+//             }
+//         } else {
+//             // Admin: all vehicles with search
+//             if ($search) {
+//                 $sql .= " WHERE v.registrationNumber LIKE :s 
+//                           OR v.make LIKE :s 
+//                           OR v.model LIKE :s 
+//                           OR v.colour LIKE :s";
+//                 $params[':s'] = "%$search%";
+//             }
+//         }
 
-        // **Order flagged vehicles first, then by id descending**
-        $sql .= " ORDER BY v.flagged DESC, v.id DESC LIMIT :start, :limit";
+//         // **Order flagged vehicles first, then by id descending**
+//         $sql .= " ORDER BY v.flagged DESC, v.id DESC LIMIT :start, :limit";
 
-        $stmt = $conn->prepare($sql);
+//         $stmt = $conn->prepare($sql);
 
-        // Bind dynamic search/filters
-        foreach ($params as $key => $val) {
-            $stmt->bindValue($key, $val);
-        }
+//         // Bind dynamic search/filters
+//         foreach ($params as $key => $val) {
+//             $stmt->bindValue($key, $val);
+//         }
 
-        // Bind pagination
-        $stmt->bindValue(':start', (int)$start, PDO::PARAM_INT);
-        $stmt->bindValue(':limit', (int)$limit, PDO::PARAM_INT);
+//         // Bind pagination
+//         $stmt->bindValue(':start', (int)$start, PDO::PARAM_INT);
+//         $stmt->bindValue(':limit', (int)$limit, PDO::PARAM_INT);
 
-        $stmt->execute();
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
-    } catch (PDOException $e) {
-        return [];
-    }
-}
+//         $stmt->execute();
+//         return $stmt->fetchAll(PDO::FETCH_ASSOC);
+//     } catch (PDOException $e) {
+//         return [];
+//     }
+// }
 
 
 // Total Vehicles Earch 
-function totalVehicles($conn, $search = '')
-{
-    try {
-        $user_id = $_SESSION['acct_id'] ?? 0;
-        $user_type = $_SESSION['type'] ?? '';
+// function totalVehicles($conn, $search = '')
+// {
+//     try {
+//         $user_id = $_SESSION['acct_id'] ?? 0;
+//         $user_type = $_SESSION['type'] ?? '';
 
-        if ($user_type === 'Administrator') {
-            // Admin: count all vehicles
-            if ($search) {
-                $stmt = $conn->prepare("SELECT COUNT(*) FROM vehicle_details_tbl 
-                    WHERE registrationNumber LIKE ? OR make LIKE ? OR model LIKE ? OR colour LIKE ?");
-                $like = "%$search%";
-                $stmt->execute([$like, $like, $like, $like]);
-            } else {
-                $stmt = $conn->query("SELECT COUNT(*) FROM vehicle_details_tbl");
-            }
-        } else {
-            // Non-admin: count only assigned vehicles for their branch
-            $branch_id = getAssignedBranchId($conn, $user_id);
-            if ($search) {
-                $stmt = $conn->prepare("SELECT COUNT(*) FROM vehicle_details_tbl 
-                    WHERE branch_id = ? AND assigned_staff = ? AND 
-                    (registrationNumber LIKE ? OR make LIKE ? OR model LIKE ? OR colour LIKE ?)");
-                $like = "%$search%";
-                $stmt->execute([$branch_id, $user_id, $like, $like, $like, $like]);
-            } else {
-                $stmt = $conn->prepare("SELECT COUNT(*) FROM vehicle_details_tbl WHERE branch_id = ? AND assigned_staff = ?");
-                $stmt->execute([$branch_id, $user_id]);
-            }
-        }
+//         if ($user_type === 'Administrator') {
+//             // Admin: count all vehicles
+//             if ($search) {
+//                 $stmt = $conn->prepare("SELECT COUNT(*) FROM vehicle_details_tbl 
+//                     WHERE registrationNumber LIKE ? OR make LIKE ? OR model LIKE ? OR colour LIKE ?");
+//                 $like = "%$search%";
+//                 $stmt->execute([$like, $like, $like, $like]);
+//             } else {
+//                 $stmt = $conn->query("SELECT COUNT(*) FROM vehicle_details_tbl");
+//             }
+//         } else {
+//             // Non-admin: count only assigned vehicles for their branch
+//             $branch_id = getAssignedBranchId($conn, $user_id);
+//             if ($search) {
+//                 $stmt = $conn->prepare("SELECT COUNT(*) FROM vehicle_details_tbl 
+//                     WHERE branch_id = ? AND assigned_staff = ? AND 
+//                     (registrationNumber LIKE ? OR make LIKE ? OR model LIKE ? OR colour LIKE ?)");
+//                 $like = "%$search%";
+//                 $stmt->execute([$branch_id, $user_id, $like, $like, $like, $like]);
+//             } else {
+//                 $stmt = $conn->prepare("SELECT COUNT(*) FROM vehicle_details_tbl WHERE branch_id = ? AND assigned_staff = ?");
+//                 $stmt->execute([$branch_id, $user_id]);
+//             }
+//         }
 
-        return (int) $stmt->fetchColumn();
-    } catch (PDOException $e) {
-        return 0;
-    }
-}
+//         return (int) $stmt->fetchColumn();
+//     } catch (PDOException $e) {
+//         return 0;
+//     }
+// }
 
-if (isset($_POST['id']) && isset($_POST['flagged'])) {
+// if (isset($_POST['id']) && isset($_POST['flagged'])) {
 
-    $id   = (int)$_POST['id'];
-    $flag = (int)$_POST['flagged'];
+//     $id   = (int)$_POST['id'];
+//     $flag = (int)$_POST['flagged'];
 
-    require_once 'model.php'; // if function is in model
-    // OR remove if function already inside controller.php
+//     require_once 'model.php'; // if function is in model
+//     // OR remove if function already inside controller.php
 
-    $result = updateFlagStatus($conn, $id, $flag);
+//     $result = updateFlagStatus($conn, $id, $flag);
 
-    echo $result ? "success" : "error";
-    exit;
-}
+//     echo $result ? "success" : "error";
+//     exit;
+// }
 
 
-function updateFlagStatus($conn)
-{
-    $id   = $_POST['id'] ?? 0;
-    $flag = $_POST['flagged'] ?? 0;
+// function updateFlagStatus($conn)
+// {
+//     $id   = $_POST['id'] ?? 0;
+//     $flag = $_POST['flagged'] ?? 0;
 
-    if (!$id) {
-        echo json_encode(["status" => "error", "message" => "Invalid vehicle ID"]);
-        return;
-    }
+//     if (!$id) {
+//         echo json_encode(["status" => "error", "message" => "Invalid vehicle ID"]);
+//         return;
+//     }
 
-    $stmt = $conn->prepare("UPDATE vehicle_details_tbl SET flagged = ? WHERE id = ?");
-    $stmt->execute([$flag, $id]);
+//     $stmt = $conn->prepare("UPDATE vehicle_details_tbl SET flagged = ? WHERE id = ?");
+//     $stmt->execute([$flag, $id]);
 
-    echo json_encode(["status" => "success"]);
-}
+//     echo json_encode(["status" => "success"]);
+// }
 
 function compressImage($source, $destination, $maxSizeKB = 50)
 {
@@ -865,3 +865,4 @@ function compressImage($source, $destination, $maxSizeKB = 50)
     imagedestroy($image);
     return true;
 }
+/////////////////////////////////////////////////////////
