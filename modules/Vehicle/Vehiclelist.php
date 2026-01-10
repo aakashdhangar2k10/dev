@@ -48,27 +48,57 @@
             </div>
         </div>
     </div>
+    <!-- Delete Model Box -->
     <div class="modal fade" id="deleteModal">
+        <div class="modal-dialog modal-sm modal-dialog-centered">
+            <div class="modal-content">
+
+                <div class="modal-header bg-red">
+                    <button type="button" class="close" data-dismiss="modal">&times;</button>
+                    <h4 class="modal-title">
+                        <i class="fa fa-trash"></i> Confirm Delete
+                    </h4>
+                </div>
+
+                <div class="modal-body text-center">
+                    Are you sure you want to delete this vehicle?
+                </div>
+
+                <div class="modal-footer text-center">
+                    <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
+                        Cancel
+                    </button>
+                    <button type="button" class="btn btn-danger btn-sm" onclick="confirmDelete()">
+                        Yes, Delete
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!------------ Review Model Box --------------->
+    <div class="modal fade" id="reviewModal">
   <div class="modal-dialog modal-sm modal-dialog-centered">
     <div class="modal-content">
 
-      <div class="modal-header bg-red">
+      <div class="modal-header bg-warning">
         <button type="button" class="close" data-dismiss="modal">&times;</button>
         <h4 class="modal-title">
-          <i class="fa fa-trash"></i> Confirm Delete
+          <i class="fa fa-flag"></i> Confirm Review
         </h4>
       </div>
 
-      <div class="modal-body text-center">
-        Are you sure you want to delete this vehicle?
+      <div class="modal-body text-center" id="reviewText">
+        Are you sure?
       </div>
 
       <div class="modal-footer text-center">
-        <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
+        <button class="btn btn-default btn-sm" data-dismiss="modal">
           Cancel
         </button>
-        <button type="button" class="btn btn-danger btn-sm" onclick="confirmDelete()">
-          Yes, Delete
+        <button class="btn btn-warning btn-sm" id="confirmReviewBtn">
+          Yes, Continue
         </button>
       </div>
 
@@ -77,38 +107,91 @@
 </div>
 
 
+    <!-- ************************ -->
 </section>
 <script>
-let deleteId = null;
+    // Delete Model Box
+    let deleteId = null;
 
-function openDeleteModal(id) {
-    deleteId = id;
-    $('#deleteModal').modal('show');
-}
+    function openDeleteModal(id) {
+        deleteId = id;
+        $('#deleteModal').modal('show');
+    }
 
-function confirmDelete() {
+    function confirmDelete() {
+        $.ajax({
+            url: "vahan_delete.php",
+            type: "POST",
+            dataType: "json",
+            data: {
+                id: deleteId
+            },
+            success: function(res) {
+                if (res.status === "success") {
+                    $('#deleteModal').modal('hide');
+
+                    // reload DataTable without page refresh
+                    $('#vehicleTable').DataTable().ajax.reload(null, false);
+                } else {
+                    alert(res.message);
+                }
+            },
+            error: function() {
+                alert("Server error. Try again.");
+            }
+        });
+    }
+
+    // Reviw Model box  
+
+ let reviewId = null;
+let reviewFlag = null;
+
+$(document).on('click', '.review-toggle', function () {
+
+    reviewId   = $(this).data('id');
+    reviewFlag = parseInt($(this).data('flag'));
+
+    const message = reviewFlag === 1
+        ? 'Do you want to mark this vehicle as NOT reviewed?'
+        : 'Do you want to mark this vehicle as Reviewed?';
+
+    $('#reviewText').text(message);
+
+    // ✅ Bootstrap 3 modal open
+    $('#reviewModal').modal('show');
+});
+
+
+    $('#confirmReviewBtn').on('click', function () {
+
     $.ajax({
-        url: "vahan_delete.php",
-        type: "POST",
-        dataType: "json",
-        data: { id: deleteId },
+        url: 'vahan_update_review.php',
+        type: 'POST',
+        dataType: 'json',
+        data: {
+            id: reviewId,
+            flagged: reviewFlag === 1 ? 0 : 1
+        },
         success: function (res) {
-            if (res.status === "success") {
-                $('#deleteModal').modal('hide');
 
-                // reload DataTable without page refresh
+            if (res.status === 'success') {
+
+                $('#reviewModal').modal('hide');
                 $('#vehicleTable').DataTable().ajax.reload(null, false);
+
             } else {
-                alert(res.message);
+                alert(res.message || 'Failed');
             }
         },
         error: function () {
-            alert("Server error. Try again.");
+            alert('Server error');
         }
     });
-}
+});
 
-// For table 
+
+    //*******************  For Datatable *****************//////////////////  
     $(document).ready(function() {
         $('#vehicleTable').DataTable({
             processing: true,
@@ -168,12 +251,20 @@ function confirmDelete() {
                 },
                 {
                     data: "flagged",
-                    render: function(data) {
-                        return data == 1 ?
-                            '<i class="fa fa-flag flag-toggle" style="cursor:pointer; color: red"></i>' :
-                            '<i class="fa fa-flag flag-toggle" style="cursor:pointer; color: green"></i>';
+                    orderable: false,
+                    searchable: false,
+                    render: function(data, type, row) {
+
+                        data = parseInt(data); 
+                        const color = data == 1 ? 'red' : 'green';
+                        const title = data == 1 ? 'Reviewed' : 'Mark as Reviewed';
+
+                        return `
+            <i class="fa fa-flag review-toggle"
+               data-id="${row.id}" data-flag="${data}" title="${title}" style="cursor:pointer; color:${color}; font-size:16px;"></i>`;
                     }
                 }
+
                 <?php if ($_SESSION['type'] === 'Administrator'): ?>,
                     {
                         data: "id",
