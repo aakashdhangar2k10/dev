@@ -37,9 +37,6 @@
               <label>Fuel:</label>
               <select id="fuelType" class="form-control">
                 <option value="">All</option>
-                <option value="Petrol">Petrol</option>
-                <option value="Diesel">Diesel</option>
-                <option value="CNG">CNG</option>
               </select>
             </div>
             <div class="form-group">
@@ -50,13 +47,16 @@
                 <option value="0">Not Reviewed</option>
               </select>
             </div>
-            <div class="form-group">
-              <label>Archived:</label>
-              <select id="archived" class="form-control">
-                <option value="0">All</option>
-                <option value="1">Archived</option>
-              </select>
-            </div>
+            <?php if ($_SESSION['type'] === 'Administrator'): ?>
+              <div class="form-group">
+                <label>Archived:</label>
+                <select id="archived" class="form-control">
+                  <option value="0">All</option>
+                  <option value="1">Archived</option>
+                </select>
+              </div>
+            <?php endif; ?>
+            
             <div class="form-group">
               <label>MOT Due:</label>
               <input type="date" id="motFrom" class="form-control">
@@ -396,33 +396,61 @@
   }
 
 
-// Get Make // 
+  // Get Make // 
   function loadMakeDropdown() {
-  $.ajax({
-    url: 'get_unique_make.php',
-    type: 'GET',
-    dataType: 'json',
-    success: function (res) {
+    $.ajax({
+      url: 'get_unique_make.php',
+      type: 'GET',
+      dataType: 'json',
+      success: function(res) {
 
-      if (res.status === 'success') {
+        if (res.status === 'success') {
 
-        let options = '<option value="">All</option>';
+          let options = '<option value="">All</option>';
 
-        res.data.forEach(function (make) {
-          options += `<option value="${make}">${make}</option>`;
-        });
+          res.data.forEach(function(make) {
+            options += `<option value="${make}">${make}</option>`;
+          });
 
-        $('#make').html(options);
+          $('#make').html(options);
+        }
+      },
+      error: function() {
+        console.error('Failed to load make list');
       }
-    },
-    error: function () {
-      console.error('Failed to load make list');
-    }
+    });
+  }
+
+  $(document).ready(function() {
+    loadMakeDropdown();
   });
-}
 
-$(document).ready(function () {
-  loadMakeDropdown();
-});
+  // Get Fule Type // 
+  function loadFueltypeDropdown() {
+    $.ajax({
+      url: 'get_unique_fuletype.php',
+      type: 'GET',
+      dataType: 'json',
+      success: function(res) {
 
+        if (res.status === 'success') {
+
+          let options = '<option value="">All</option>';
+
+          res.data.forEach(function(fuelType) {
+            options += `<option value="${fuelType}">${fuelType}</option>`;
+          });
+
+          $('#fuelType').html(options);
+        }
+      },
+      error: function() {
+        console.error('Failed to load make list');
+      }
+    });
+  }
+
+  $(document).ready(function() {
+    loadFueltypeDropdown();
+  });
 </script>

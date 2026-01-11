@@ -1,5 +1,6 @@
 <?php
-include('../../includes/db.php'); // PDO connection
+session_start();
+include('../../includes/db.php');
 
 header('Content-Type: application/json');
 
@@ -8,9 +9,9 @@ header('Content-Type: application/json');
 | DataTables Parameters
 |--------------------------------------------------------------------------
 */
-$draw   = isset($_POST['draw']) ? (int)$_POST['draw'] : 0;
-$start  = isset($_POST['start']) ? (int)$_POST['start'] : 0;
-$length = isset($_POST['length']) ? (int)$_POST['length'] : 10;
+$draw   = (int)($_POST['draw'] ?? 0);
+$start  = (int)($_POST['start'] ?? 0);
+$length = (int)($_POST['length'] ?? 10);
 
 $searchValue = $_POST['search']['value'] ?? '';
 
@@ -19,7 +20,7 @@ $orderDir         = $_POST['order'][0]['dir'] ?? 'DESC';
 
 /*
 |--------------------------------------------------------------------------
-| Column Mapping (MUST MATCH FRONTEND)
+| Column Mapping
 |--------------------------------------------------------------------------
 */
 $columns = [
@@ -28,8 +29,7 @@ $columns = [
     2 => 'vd.make',
     3 => 'vd.fuelType',
     4 => 'vd.motDueDate',
-    5 => 'vd.flagged',
-    6 => 'vd.is_deleted'
+    5 => 'vd.flagged'
 ];
 
 $orderColumn = $columns[$orderColumnIndex] ?? 'vd.id';
@@ -46,15 +46,34 @@ $reviewed   = $_POST['reviewed'] ?? '';
 $archived   = $_POST['archived'] ?? '';
 $motFrom    = $_POST['motFrom'] ?? '';
 $motTo      = $_POST['motTo'] ?? '';
+$assigned_staff = $_POST['assigned_staff'] ?? '';
+$branch_id  = $_POST['branch_id'] ?? '';
 
 /*
 |--------------------------------------------------------------------------
-| Base WHERE Clause
+| Logged-in User
+|--------------------------------------------------------------------------
+*/
+$acct_id = $_SESSION['acct_id'] ?? 0;
+$type    = $_SESSION['type'] ?? '';
+
+/*
+|--------------------------------------------------------------------------
+| Base WHERE
 |--------------------------------------------------------------------------
 */
 $where  = " WHERE 1=1 ";
-
 $params = [];
+
+/*
+|--------------------------------------------------------------------------
+| ROLE-BASED VISIBILITY (IMPORTANT)
+|--------------------------------------------------------------------------
+*/
+if ($type !== 'Administrator') {
+    $where .= " AND vd.assigned_staff = :login_acct_id";
+    $params[':login_acct_id'] = $acct_id;
+}
 
 /*
 |--------------------------------------------------------------------------
@@ -81,11 +100,6 @@ if ($reviewed !== '') {
     $params[':reviewed'] = $reviewed;
 }
 
-// if ($archived !== '') {
-//     $where .= " AND vd.is_deleted = :archived";
-//     $params[':archived'] = $archived;
-// }
-// IF archived filter is selected
 if ($archived !== '') {
     $where .= " AND vd.is_deleted = :archived";
     $params[':archived'] = (int)$archived;
@@ -97,16 +111,26 @@ if ($motFrom !== '' && $motTo !== '') {
     $params[':motTo']   = $motTo;
 }
 
+/* Admin-only staff filter */
+if ($type === 'Administrator' && $assigned_staff !== '') {
+    $where .= " AND vd.assigned_staff = :assigned_staff";
+    $params[':assigned_staff'] = $assigned_staff;
+}
+
+if ($branch_id !== '') {
+    $where .= " AND vd.branch_id = :branch_id";
+    $params[':branch_id'] = $branch_id;
+}
+
 /*
 |--------------------------------------------------------------------------
-| Global Search (DataTables)
+| Global Search
 |--------------------------------------------------------------------------
 */
 if ($searchValue !== '') {
     $where .= " AND (
         vd.vehicle_no LIKE :search
         OR vd.make LIKE :search
-        OR vd.model LIKE :search
         OR vd.fuelType LIKE :search
     )";
     $params[':search'] = "%$searchValue%";
@@ -114,22 +138,16 @@ if ($searchValue !== '') {
 
 /*
 |--------------------------------------------------------------------------
-| Total Records (no filter)
+| Records Count
 |--------------------------------------------------------------------------
 */
-$totalRecords = $conn
-    ->query("SELECT COUNT(*) FROM vehicle_details_tbl")
-    ->fetchColumn();
+$totalRecords = $conn->query(
+    "SELECT COUNT(*) FROM vehicle_details_tbl"
+)->fetchColumn();
 
-/*
-|--------------------------------------------------------------------------
-| Total Records (with filter)
-|--------------------------------------------------------------------------
-*/
 $stmtFiltered = $conn->prepare("
     SELECT COUNT(*)
     FROM vehicle_details_tbl vd
-    LEFT JOIN vehicle_inspection_tbl vi ON vi.vehicle_id = vd.id
     $where
 ");
 $stmtFiltered->execute($params);
@@ -149,6 +167,8 @@ $sql = "
         vd.motDueDate,
         vd.flagged,
         vd.is_deleted,
+        vd.branch_id,
+        vd.assigned_staff,
         vi.inspection_date
     FROM vehicle_details_tbl vd
     LEFT JOIN vehicle_inspection_tbl vi ON vi.vehicle_id = vd.id
@@ -159,12 +179,10 @@ $sql = "
 
 $stmt = $conn->prepare($sql);
 
-/* Bind dynamic params */
 foreach ($params as $key => $val) {
     $stmt->bindValue($key, $val);
 }
 
-/* Pagination */
 $stmt->bindValue(':start', $start, PDO::PARAM_INT);
 $stmt->bindValue(':length', $length, PDO::PARAM_INT);
 
@@ -181,4 +199,4 @@ echo json_encode([
     "recordsTotal"    => (int)$totalRecords,
     "recordsFiltered" => (int)$recordsFiltered,
     "data"            => $data
-], JSON_UNESCAPED_UNICODE);
+]);
