@@ -49,6 +49,11 @@ switch ($view) {
         $title="All Vehicles";	
 		$content='print_vahan_report.php';			
 		break;
+	case "advance_search" :
+        $page_title="Advance Saerch";	
+        $title="All Vehicles";	
+		$content='vehiclelist_advance_search.php';			
+		break;
 	default :
 	    $title="list";	
 		$content ='Vehiclelist.php';		
