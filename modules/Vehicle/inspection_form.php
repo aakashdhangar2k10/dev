@@ -162,7 +162,7 @@ if (!empty($_GET['vehicle_no'])) {
                             <div class="mt-2">
                                 <label class="text-muted">Upload Photo (Engine Compartment):</label>
                                 <input type="file" class="form-control" name="photo_engine_compartment" accept="image/*" capture="camera" id="photo_engine_compartment">
-                                <div class="preview mt-2" id="preview_exterior"></div>
+                                <div class="preview mt-2" id="preview_engine_compartment"></div>
                             </div>
                         </div>
 
@@ -267,6 +267,7 @@ if (!empty($_GET['vehicle_no'])) {
     previewImage('photo_drivers_cabin', 'preview_drivers_cabin');
     previewImage('photo_loading_area', 'preview_loading_area');
     previewImage('photo_exterior', 'preview_exterior');
+    previewImage('photo_engine_compartment', 'preview_engine_compartment');
 </script>
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <?php if (isset($_GET['status'])): ?>

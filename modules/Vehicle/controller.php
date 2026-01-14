@@ -251,6 +251,90 @@ function save_vehicle()
 
 
 //This function is used to Upload Images 
+// function upload_vehicle_images()
+// {
+//     include('../../includes/db.php');
+
+//     $vehicle_id = $_POST['vehicle_id'] ?? null;
+
+//     if (!$vehicle_id) {
+//         echo "<script>alert('Vehicle ID is required!'); window.history.back();</script>";
+//         return;
+//     }
+
+//     try {
+//         // Check if this vehicle already has images
+//         $check = $conn->prepare("SELECT COUNT(*) FROM vehicle_images_tbl WHERE vehicle_id = :vehicle_id");
+//         $check->execute([':vehicle_id' => $vehicle_id]);
+//         $exists = $check->fetchColumn();
+
+//         if ($exists > 0) {
+//             echo "<script>alert('Photo already added for this vehicle!'); 
+//                   window.location='index.php?view=view_van_list';</script>";
+//             return;
+//         }
+
+//         // Continue only if no photo exists
+//         $uploadDir = "../../uploads/vehicles/";
+//         if (!is_dir($uploadDir)) {
+//             mkdir($uploadDir, 0777, true);
+//         }
+
+//         $images  = $_FILES['vehicle_images'] ?? null;
+//         $labels  = $_POST['image_label'] ?? [];
+//         $descs   = $_POST['image_description'] ?? [];
+
+//         if (!$images || !is_array($images['tmp_name'])) {
+//             echo "<script>alert('No images uploaded!'); window.history.back();</script>";
+//             return;
+//         }
+
+//         foreach ($images['tmp_name'] as $index => $tmpName) {
+//             if ($images['error'][$index] === UPLOAD_ERR_OK && is_uploaded_file($tmpName)) {
+
+//                 $ext = strtolower(pathinfo($images['name'][$index], PATHINFO_EXTENSION));
+//                 $fileName = uniqid("veh_{$vehicle_id}_") . "." . $ext;
+//                 $targetPath = $uploadDir . $fileName;
+
+//                 // Compress and save image
+//                 if (compressImage($tmpName, $targetPath, 200)) {
+
+//                     $label = $labels[$index] ?? '';
+//                     $desc  = $descs[$index] ?? '';
+
+//                     $stmt = $conn->prepare("
+//                 INSERT INTO vehicle_images_tbl 
+//                 (vehicle_id, image_path, image_label, image_description) 
+//                 VALUES (:vehicle_id, :image_path, :image_label, :image_description)
+//             ");
+
+//                     $stmt->execute([
+//                         ':vehicle_id' => $vehicle_id,
+//                         ':image_path' => $fileName,
+//                         ':image_label' => $label,
+//                         ':image_description' => $desc
+//                     ]);
+//                 }
+//             }
+//         }
+
+
+//         // Redirect depending on button clicked
+//         if (isset($_POST['inspection'])) {
+//             echo "<script>alert('Vehicle photo added successfully!'); 
+//                   window.location='index.php?view=inspection&vehicle_no={$vehicle_id}';</script>";
+//         } else {
+//             // SUCCESS REDIRECT
+//             header("Location: index.php?view=add_van&vehicle_no=$vehicle_id&status=success");
+//             exit;
+//             // echo "<script>alert('Vehicle images uploaded successfully!'); 
+//             //   window.location='index.php?view=view_van_list';</script>";
+//         }
+//     } catch (PDOException $e) {
+//         echo "Error inserting vehicle images: " . $e->getMessage();
+//     }
+// }
+
 function upload_vehicle_images()
 {
     include('../../includes/db.php');
@@ -259,83 +343,262 @@ function upload_vehicle_images()
 
     if (!$vehicle_id) {
         echo "<script>alert('Vehicle ID is required!'); window.history.back();</script>";
-        return;
+        exit;
     }
 
     try {
-        // Check if this vehicle already has images
-        $check = $conn->prepare("SELECT COUNT(*) FROM vehicle_images_tbl WHERE vehicle_id = :vehicle_id");
-        $check->execute([':vehicle_id' => $vehicle_id]);
-        $exists = $check->fetchColumn();
 
-        if ($exists > 0) {
-            echo "<script>alert('Photo already added for this vehicle!'); 
-                  window.location='index.php?view=view_van_list';</script>";
-            return;
+        /* -------------------------------------------------
+           1. CHECK IF IMAGES ALREADY EXIST FOR VEHICLE
+        ------------------------------------------------- */
+        $check = $conn->prepare("
+            SELECT COUNT(*) 
+            FROM vehicle_images_tbl 
+            WHERE vehicle_id = :vehicle_id
+        ");
+        $check->execute([':vehicle_id' => $vehicle_id]);
+
+        if ($check->fetchColumn() > 0) {
+            echo "<script>
+                alert('Photo already added for this vehicle!');
+                window.location='index.php?view=view_van_list';
+            </script>";
+            exit;
         }
 
-        // Continue only if no photo exists
+        /* -------------------------------------------------
+           2. UPLOAD DIRECTORY
+        ------------------------------------------------- */
         $uploadDir = "../../uploads/vehicles/";
         if (!is_dir($uploadDir)) {
             mkdir($uploadDir, 0777, true);
         }
 
-        $images  = $_FILES['vehicle_images'] ?? null;
-        $labels  = $_POST['image_label'] ?? [];
-        $descs   = $_POST['image_description'] ?? [];
+        $images = $_FILES['vehicle_images'] ?? null;
+        $labels = $_POST['image_label'] ?? [];
+        $descs  = $_POST['image_description'] ?? [];
 
         if (!$images || !is_array($images['tmp_name'])) {
             echo "<script>alert('No images uploaded!'); window.history.back();</script>";
-            return;
+            exit;
         }
 
+        /* -------------------------------------------------
+           3. ALLOWED MIME TYPES
+        ------------------------------------------------- */
+        $allowedMime = [
+            'image/jpeg',
+            'image/jpg',
+            'image/png',
+            'image/webp'
+        ];
+
+        /* -------------------------------------------------
+           4. LOOP THROUGH IMAGES
+        ------------------------------------------------- */
         foreach ($images['tmp_name'] as $index => $tmpName) {
-            if ($images['error'][$index] === UPLOAD_ERR_OK && is_uploaded_file($tmpName)) {
 
-                $ext = strtolower(pathinfo($images['name'][$index], PATHINFO_EXTENSION));
-                $fileName = uniqid("veh_{$vehicle_id}_") . "." . $ext;
-                $targetPath = $uploadDir . $fileName;
+            if (
+                $images['error'][$index] !== UPLOAD_ERR_OK ||
+                !is_uploaded_file($tmpName)
+            ) {
+                continue;
+            }
 
-                // Compress and save image
-                if (compressImage($tmpName, $targetPath, 200)) {
+            /* ---- MIME TYPE CHECK ---- */
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+            $mime  = finfo_file($finfo, $tmpName);
+            finfo_close($finfo);
 
-                    $label = $labels[$index] ?? '';
-                    $desc  = $descs[$index] ?? '';
+            if (!in_array($mime, $allowedMime)) {
+                continue;
+            }
 
-                    $stmt = $conn->prepare("
-                INSERT INTO vehicle_images_tbl 
-                (vehicle_id, image_path, image_label, image_description) 
-                VALUES (:vehicle_id, :image_path, :image_label, :image_description)
+            /* ---- EXTENSION HANDLING (iPhone HEIC FIX) ---- */
+            $ext = strtolower(pathinfo($images['name'][$index], PATHINFO_EXTENSION));
+            if (in_array($ext, ['heic', 'heif'])) {
+                $ext = 'jpg';
+            }
+
+            /* ---- UNIQUE FILE NAME ---- */
+            $fileName = 'veh_' . $vehicle_id . '_'
+                . date('Ymd_His') . '_'
+                . bin2hex(random_bytes(5)) . '.' . $ext;
+
+            $targetPath = $uploadDir . $fileName;
+
+            /* -------------------------------------------------
+               5. COMPRESS & SAVE IMAGE
+            ------------------------------------------------- */
+            if (!compressImage($tmpName, $targetPath, 80)) {
+                continue;
+            }
+
+            /* -------------------------------------------------
+               6. SAVE TO DATABASE
+            ------------------------------------------------- */
+            $stmt = $conn->prepare("
+                INSERT INTO vehicle_images_tbl
+                (vehicle_id, image_path, image_label, image_description, created_at)
+                VALUES
+                (:vehicle_id, :image_path, :image_label, :image_description, NOW())
             ");
 
-                    $stmt->execute([
-                        ':vehicle_id' => $vehicle_id,
-                        ':image_path' => $fileName,
-                        ':image_label' => $label,
-                        ':image_description' => $desc
-                    ]);
-                }
-            }
+            $stmt->execute([
+                ':vehicle_id'       => $vehicle_id,
+                ':image_path'       => $fileName,
+                ':image_label'      => $labels[$index] ?? '',
+                ':image_description'=> $descs[$index] ?? ''
+            ]);
         }
 
-
-        // Redirect depending on button clicked
+        /* -------------------------------------------------
+           7. REDIRECT
+        ------------------------------------------------- */
         if (isset($_POST['inspection'])) {
-            echo "<script>alert('Vehicle photo added successfully!'); 
-                  window.location='index.php?view=inspection&vehicle_no={$vehicle_id}';</script>";
+            echo "<script>
+                alert('Vehicle photo added successfully!');
+                window.location='index.php?view=inspection&vehicle_no={$vehicle_id}';
+            </script>";
         } else {
-            // SUCCESS REDIRECT
-            header("Location: index.php?view=add_van&vehicle_no=$vehicle_id&status=success");
+            header("Location: index.php?view=add_van&vehicle_no={$vehicle_id}&status=success");
             exit;
-            // echo "<script>alert('Vehicle images uploaded successfully!'); 
-            //   window.location='index.php?view=view_van_list';</script>";
         }
-    } catch (PDOException $e) {
-        echo "Error inserting vehicle images: " . $e->getMessage();
+
+    } catch (Exception $e) {
+        echo "Error uploading vehicle images: " . $e->getMessage();
     }
 }
 
+
 //This function is used to update images 
+// function update_vehicle_images()
+// {
+//     include('../../includes/db.php');
+
+//     $vehicle_id = $_POST['vehicle_id'] ?? null;
+//     if (!$vehicle_id) {
+//         echo "<script>alert('Vehicle ID is required!'); window.history.back();</script>";
+//         return;
+//     }
+
+//     try {
+//         $uploadDir = "../../uploads/vehicles/";
+//         if (!is_dir($uploadDir)) mkdir($uploadDir, 0777, true);
+
+//         // -------------------
+//         // Update Existing Images
+//         // -------------------
+//         $labels = $_POST['image_label'] ?? [];
+//         $descs  = $_POST['image_description'] ?? [];
+//         $replaceFiles = $_FILES['replace_image'] ?? [];
+
+//         foreach ($labels as $img_id => $label) {
+//             $desc = $descs[$img_id] ?? '';
+
+//             // Check if replacement file uploaded
+//             $replaceTmp = $replaceFiles['tmp_name'][$img_id] ?? null;
+
+//             if ($replaceTmp && $replaceFiles['error'][$img_id] === UPLOAD_ERR_OK) {
+
+//                 $ext = strtolower(pathinfo($replaceFiles['name'][$img_id], PATHINFO_EXTENSION));
+//                 $allowed = ['jpg', 'jpeg', 'png', 'webp'];
+//                 if (!in_array($ext, $allowed)) continue;
+
+//                 $fileName = uniqid("veh_{$vehicle_id}_") . "." . $ext;
+//                 $targetPath = $uploadDir . $fileName;
+
+//                 // 🔽 COMPRESS & SAVE (<= 200KB)
+//                 if (compressImage($replaceTmp, $targetPath, 200)) {
+
+//                     // Delete old image
+//                     $oldStmt = $conn->prepare("SELECT image_path FROM vehicle_images_tbl WHERE id = :id");
+//                     $oldStmt->execute([':id' => $img_id]);
+//                     $oldFile = $oldStmt->fetchColumn();
+
+//                     if ($oldFile && file_exists($uploadDir . $oldFile)) {
+//                         unlink($uploadDir . $oldFile);
+//                     }
+
+//                     // Update DB
+//                     $stmt = $conn->prepare("
+//                 UPDATE vehicle_images_tbl 
+//                 SET image_path = :image_path, 
+//                     image_label = :image_label, 
+//                     image_description = :image_description
+//                 WHERE id = :id
+//             ");
+
+//                     $stmt->execute([
+//                         ':image_path' => $fileName,
+//                         ':image_label' => $label,
+//                         ':image_description' => $desc,
+//                         ':id' => $img_id
+//                     ]);
+//                 }
+//             } else {
+//                 // Only label/description update
+//                 $stmt = $conn->prepare("
+//             UPDATE vehicle_images_tbl 
+//             SET image_label = :image_label, image_description = :image_description
+//             WHERE id = :id
+//         ");
+
+//                 $stmt->execute([
+//                     ':image_label' => $label,
+//                     ':image_description' => $desc,
+//                     ':id' => $img_id
+//                 ]);
+//             }
+//         }
+
+
+//         // -------------------
+//         // Insert New Images
+//         // -------------------
+//         $newImages = $_FILES['vehicle_images'] ?? null;
+//         $newLabels = $_POST['image_label_new'] ?? [];
+//         $newDescs  = $_POST['image_description_new'] ?? [];
+
+//         if ($newImages && is_array($newImages['tmp_name'])) {
+//             foreach ($newImages['tmp_name'] as $index => $tmpName) {
+//                 if ($newImages['error'][$index] === UPLOAD_ERR_OK && is_uploaded_file($tmpName)) {
+//                     $ext = pathinfo($newImages['name'][$index], PATHINFO_EXTENSION);
+//                     $fileName = uniqid("veh_{$vehicle_id}_") . "." . strtolower($ext);
+//                     $targetPath = $uploadDir . $fileName;
+
+//                     if (move_uploaded_file($tmpName, $targetPath)) {
+//                         $label = $newLabels[$index] ?? '';
+//                         $desc  = $newDescs[$index] ?? '';
+
+//                         $stmt = $conn->prepare("
+//                             INSERT INTO vehicle_images_tbl
+//                             (vehicle_id, image_path, image_label, image_description)
+//                             VALUES (:vehicle_id, :image_path, :image_label, :image_description)
+//                         ");
+//                         $stmt->execute([
+//                             ':vehicle_id' => $vehicle_id,
+//                             ':image_path' => $fileName,
+//                             ':image_label' => $label,
+//                             ':image_description' => $desc
+//                         ]);
+//                     }
+//                 }
+//             }
+//         }
+//         // SUCCESS REDIRECT
+//         header("Location: index.php?view=edit_van_photos&vehicle_no=$vehicle_id&status=success");
+//         exit;
+//     } catch (PDOException $e) {
+
+//         // (Optional) Log error to file but DO NOT echo before header
+//         error_log("Vehicle image update error: " . $e->getMessage());
+
+//         // ERROR REDIRECT
+//         header("Location: index.php?view=edit_van_photos&vehicle_no=$vehicle_id&status=error");
+//         exit;
+//     }
+// }
 function update_vehicle_images()
 {
     include('../../includes/db.php');
@@ -343,126 +606,196 @@ function update_vehicle_images()
     $vehicle_id = $_POST['vehicle_id'] ?? null;
     if (!$vehicle_id) {
         echo "<script>alert('Vehicle ID is required!'); window.history.back();</script>";
-        return;
+        exit;
     }
 
     try {
-        $uploadDir = "../../uploads/vehicles/";
-        if (!is_dir($uploadDir)) mkdir($uploadDir, 0777, true);
 
-        // -------------------
-        // Update Existing Images
-        // -------------------
-        $labels = $_POST['image_label'] ?? [];
-        $descs  = $_POST['image_description'] ?? [];
+        /* -------------------------------------------------
+           1. UPLOAD DIRECTORY
+        ------------------------------------------------- */
+        $uploadDir = "../../uploads/vehicles/";
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0777, true);
+        }
+
+        /* -------------------------------------------------
+           2. ALLOWED MIME TYPES
+        ------------------------------------------------- */
+        $allowedMime = [
+            'image/jpeg',
+            'image/jpg',
+            'image/png',
+            'image/webp'
+        ];
+
+        /* -------------------------------------------------
+           3. UPDATE EXISTING IMAGES
+        ------------------------------------------------- */
+        $labels       = $_POST['image_label'] ?? [];
+        $descs        = $_POST['image_description'] ?? [];
         $replaceFiles = $_FILES['replace_image'] ?? [];
 
         foreach ($labels as $img_id => $label) {
-            $desc = $descs[$img_id] ?? '';
 
-            // Check if replacement file uploaded
+            $desc = $descs[$img_id] ?? '';
             $replaceTmp = $replaceFiles['tmp_name'][$img_id] ?? null;
 
-            if ($replaceTmp && $replaceFiles['error'][$img_id] === UPLOAD_ERR_OK) {
+            /* ---------- REPLACE IMAGE FILE ---------- */
+            if (
+                $replaceTmp &&
+                isset($replaceFiles['error'][$img_id]) &&
+                $replaceFiles['error'][$img_id] === UPLOAD_ERR_OK &&
+                is_uploaded_file($replaceTmp)
+            ) {
 
+                /* MIME CHECK */
+                $finfo = finfo_open(FILEINFO_MIME_TYPE);
+                $mime  = finfo_file($finfo, $replaceTmp);
+                finfo_close($finfo);
+
+                if (!in_array($mime, $allowedMime)) {
+                    continue;
+                }
+
+                /* EXTENSION FIX (iPhone HEIC) */
                 $ext = strtolower(pathinfo($replaceFiles['name'][$img_id], PATHINFO_EXTENSION));
-                $allowed = ['jpg', 'jpeg', 'png', 'webp'];
-                if (!in_array($ext, $allowed)) continue;
+                if (in_array($ext, ['heic', 'heif'])) {
+                    $ext = 'jpg';
+                }
 
-                $fileName = uniqid("veh_{$vehicle_id}_") . "." . $ext;
+                /* STRONG UNIQUE NAME */
+                $fileName = 'veh_' . $vehicle_id . '_'
+                    . date('Ymd_His') . '_'
+                    . bin2hex(random_bytes(5)) . '.' . $ext;
+
                 $targetPath = $uploadDir . $fileName;
 
-                // 🔽 COMPRESS & SAVE (<= 200KB)
-                if (compressImage($replaceTmp, $targetPath, 200)) {
-
-                    // Delete old image
-                    $oldStmt = $conn->prepare("SELECT image_path FROM vehicle_images_tbl WHERE id = :id");
-                    $oldStmt->execute([':id' => $img_id]);
-                    $oldFile = $oldStmt->fetchColumn();
-
-                    if ($oldFile && file_exists($uploadDir . $oldFile)) {
-                        unlink($uploadDir . $oldFile);
-                    }
-
-                    // Update DB
-                    $stmt = $conn->prepare("
-                UPDATE vehicle_images_tbl 
-                SET image_path = :image_path, 
-                    image_label = :image_label, 
-                    image_description = :image_description
-                WHERE id = :id
-            ");
-
-                    $stmt->execute([
-                        ':image_path' => $fileName,
-                        ':image_label' => $label,
-                        ':image_description' => $desc,
-                        ':id' => $img_id
-                    ]);
+                /* COMPRESS & SAVE */
+                if (!compressImage($replaceTmp, $targetPath, 80)) {
+                    continue;
                 }
-            } else {
-                // Only label/description update
-                $stmt = $conn->prepare("
-            UPDATE vehicle_images_tbl 
-            SET image_label = :image_label, image_description = :image_description
-            WHERE id = :id
-        ");
 
+                /* DELETE OLD IMAGE */
+                $oldStmt = $conn->prepare("
+                    SELECT image_path 
+                    FROM vehicle_images_tbl 
+                    WHERE id = :id
+                ");
+                $oldStmt->execute([':id' => $img_id]);
+                $oldFile = $oldStmt->fetchColumn();
+
+                if ($oldFile && file_exists($uploadDir . $oldFile)) {
+                    unlink($uploadDir . $oldFile);
+                }
+
+                /* UPDATE DB */
+                $stmt = $conn->prepare("
+                    UPDATE vehicle_images_tbl
+                    SET image_path = :image_path,
+                        image_label = :image_label,
+                        image_description = :image_description
+                    WHERE id = :id
+                ");
                 $stmt->execute([
-                    ':image_label' => $label,
-                    ':image_description' => $desc,
-                    ':id' => $img_id
+                    ':image_path'       => $fileName,
+                    ':image_label'      => $label,
+                    ':image_description'=> $desc,
+                    ':id'               => $img_id
+                ]);
+
+            } else {
+                /* ---------- LABEL/DESC ONLY ---------- */
+                $stmt = $conn->prepare("
+                    UPDATE vehicle_images_tbl
+                    SET image_label = :image_label,
+                        image_description = :image_description
+                    WHERE id = :id
+                ");
+                $stmt->execute([
+                    ':image_label'      => $label,
+                    ':image_description'=> $desc,
+                    ':id'               => $img_id
                 ]);
             }
         }
 
-
-        // -------------------
-        // Insert New Images
-        // -------------------
+        /* -------------------------------------------------
+           4. INSERT NEW IMAGES
+        ------------------------------------------------- */
         $newImages = $_FILES['vehicle_images'] ?? null;
         $newLabels = $_POST['image_label_new'] ?? [];
         $newDescs  = $_POST['image_description_new'] ?? [];
 
         if ($newImages && is_array($newImages['tmp_name'])) {
+
             foreach ($newImages['tmp_name'] as $index => $tmpName) {
-                if ($newImages['error'][$index] === UPLOAD_ERR_OK && is_uploaded_file($tmpName)) {
-                    $ext = pathinfo($newImages['name'][$index], PATHINFO_EXTENSION);
-                    $fileName = uniqid("veh_{$vehicle_id}_") . "." . strtolower($ext);
-                    $targetPath = $uploadDir . $fileName;
 
-                    if (move_uploaded_file($tmpName, $targetPath)) {
-                        $label = $newLabels[$index] ?? '';
-                        $desc  = $newDescs[$index] ?? '';
-
-                        $stmt = $conn->prepare("
-                            INSERT INTO vehicle_images_tbl
-                            (vehicle_id, image_path, image_label, image_description)
-                            VALUES (:vehicle_id, :image_path, :image_label, :image_description)
-                        ");
-                        $stmt->execute([
-                            ':vehicle_id' => $vehicle_id,
-                            ':image_path' => $fileName,
-                            ':image_label' => $label,
-                            ':image_description' => $desc
-                        ]);
-                    }
+                if (
+                    $newImages['error'][$index] !== UPLOAD_ERR_OK ||
+                    !is_uploaded_file($tmpName)
+                ) {
+                    continue;
                 }
+
+                /* MIME CHECK */
+                $finfo = finfo_open(FILEINFO_MIME_TYPE);
+                $mime  = finfo_file($finfo, $tmpName);
+                finfo_close($finfo);
+
+                if (!in_array($mime, $allowedMime)) {
+                    continue;
+                }
+
+                /* EXTENSION FIX */
+                $ext = strtolower(pathinfo($newImages['name'][$index], PATHINFO_EXTENSION));
+                if (in_array($ext, ['heic', 'heif'])) {
+                    $ext = 'jpg';
+                }
+
+                /* UNIQUE NAME */
+                $fileName = 'veh_' . $vehicle_id . '_'
+                    . date('Ymd_His') . '_'
+                    . bin2hex(random_bytes(5)) . '.' . $ext;
+
+                $targetPath = $uploadDir . $fileName;
+
+                /* COMPRESS & SAVE */
+                if (!compressImage($tmpName, $targetPath, 80)) {
+                    continue;
+                }
+
+                /* INSERT DB */
+                $stmt = $conn->prepare("
+                    INSERT INTO vehicle_images_tbl
+                    (vehicle_id, image_path, image_label, image_description, created_at)
+                    VALUES
+                    (:vehicle_id, :image_path, :image_label, :image_description, NOW())
+                ");
+                $stmt->execute([
+                    ':vehicle_id'       => $vehicle_id,
+                    ':image_path'       => $fileName,
+                    ':image_label'      => $newLabels[$index] ?? '',
+                    ':image_description'=> $newDescs[$index] ?? ''
+                ]);
             }
         }
-        // SUCCESS REDIRECT
-        header("Location: index.php?view=edit_van_photos&vehicle_no=$vehicle_id&status=success");
-        exit;
-    } catch (PDOException $e) {
 
-        // (Optional) Log error to file but DO NOT echo before header
+        /* -------------------------------------------------
+           5. SUCCESS REDIRECT
+        ------------------------------------------------- */
+        header("Location: index.php?view=edit_van_photos&vehicle_no={$vehicle_id}&status=success");
+        exit;
+
+    } catch (Exception $e) {
+
         error_log("Vehicle image update error: " . $e->getMessage());
 
-        // ERROR REDIRECT
-        header("Location: index.php?view=edit_van_photos&vehicle_no=$vehicle_id&status=error");
+        header("Location: index.php?view=edit_van_photos&vehicle_no={$vehicle_id}&status=error");
         exit;
     }
 }
+
 
 
 // Helper function to get assigned branch id for the user
@@ -475,63 +808,253 @@ function getAssignedBranchId($conn, $user_id)
 }
 
 // Function is used to save inspection
+// function saveInspection($conn, $data)
+// {
+//     // Sanitize inputs
+//     $vehicle_id = intval($data['vehicle_id']);
+//     $tyres = htmlspecialchars($data['tyres']);
+//     $drivers_cabin = htmlspecialchars($data['drivers_cabin']);
+//     $loading_area = htmlspecialchars($data['loading_area']);
+//     $exterior = htmlspecialchars($data['exterior']);
+//     $engine_compartment = htmlspecialchars($data['engine_compartment']);
+//     $mechanical = htmlspecialchars($data['mechanical']);
+//     $comments = htmlspecialchars($data['comments']);
+//     $test_driven = htmlspecialchars($data['test_driven']);
+//     $test_drive_comments = htmlspecialchars($data['test_drive_comments']);
+//     $inspection_by = $_SESSION['acct_id'] ?? 0; // logged-in staff ID
+
+//     try {
+//         // --- Check if inspection already exists ---
+//         $check = $conn->prepare("SELECT COUNT(*) FROM vehicle_inspection_tbl WHERE vehicle_id = :vehicle_id");
+//         $check->execute([':vehicle_id' => $vehicle_id]);
+//         if ($check->fetchColumn() > 0) {
+//             echo "<script>alert('Inspection already done for this vehicle!'); window.location='index.php?view=view_van_list';</script>";
+//             return;
+//         }
+
+//         // --- Upload directory setup ---
+//         $uploadDir = "../../uploads/inspection_photos/";
+//         if (!is_dir($uploadDir)) {
+//             mkdir($uploadDir, 0777, true);
+//         }
+
+//         // --- Helper function for file upload ---
+//         function uploadPhoto($fieldName, $uploadDir)
+//         {
+//             if (!empty($_FILES[$fieldName]['name'])) {
+//                 $filename = time() . '_' . preg_replace("/[^a-zA-Z0-9._-]/", "_", basename($_FILES[$fieldName]['name']));
+//                 $targetPath = $uploadDir . $filename;
+//                 if (move_uploaded_file($_FILES[$fieldName]['tmp_name'], $targetPath)) {
+//                     return $filename;
+//                 }
+//             }
+//             return null;
+//         }
+
+//         // --- Handle each photo upload ---
+//         $photo_drivers_cabin = uploadPhoto('photo_drivers_cabin', $uploadDir);
+//         $photo_loading_area  = uploadPhoto('photo_loading_area', $uploadDir);
+//         $photo_exterior      = uploadPhoto('photo_exterior', $uploadDir);
+//         $photo_engine_compartment  = uploadPhoto('photo_engine_compartment', $uploadDir);
+
+//         // --- Insert into table ---
+//         $stmt = $conn->prepare("
+//             INSERT INTO vehicle_inspection_tbl 
+//             (vehicle_id, tyres, drivers_cabin, loading_area, exterior, engine_compartment, mechanical, comments, 
+//              test_driven, test_drive_comments, photo_drivers_cabin, photo_loading_area, photo_exterior,photo_engine_compartment, inspection_by, inspection_date)
+//             VALUES 
+//             (:vehicle_id, :tyres, :drivers_cabin, :loading_area, :exterior, :engine_compartment, :mechanical, :comments, 
+//              :test_driven, :test_drive_comments, :photo_drivers_cabin, :photo_loading_area, :photo_exterior,:photo_engine_compartment, :inspection_by, NOW())
+//         ");
+
+//         $stmt->execute([
+//             ':vehicle_id' => $vehicle_id,
+//             ':tyres' => $tyres,
+//             ':drivers_cabin' => $drivers_cabin,
+//             ':loading_area' => $loading_area,
+//             ':exterior' => $exterior,
+//             ':engine_compartment' => $engine_compartment,
+//             ':mechanical' => $mechanical,
+//             ':comments' => $comments,
+//             ':test_driven' => $test_driven,
+//             ':test_drive_comments' => $test_drive_comments,
+//             ':photo_drivers_cabin' => $photo_drivers_cabin,
+//             ':photo_loading_area' => $photo_loading_area,
+//             ':photo_exterior' => $photo_exterior,
+//             ':photo_engine_compartment' => $photo_engine_compartment,
+//             ':inspection_by' => $inspection_by
+//         ]);
+
+//         // SUCCESS REDIRECT
+//         header("Location: index.php?view=inspection&vehicle_no=$vehicle_id&status=success");
+//         exit;
+//     } catch (PDOException $e) {
+
+//         // (Optional) Log error to file but DO NOT echo before header
+//         error_log("Vehicle image update error: " . $e->getMessage());
+
+//         // ERROR REDIRECT
+//         header("Location: index.php?view=inspection&vehicle_no=$vehicle_id&status=error");
+//         exit;
+//     }
+// }
 function saveInspection($conn, $data)
 {
-    // Sanitize inputs
+    // -----------------------------
+    // 1. SANITIZE INPUTS
+    // -----------------------------
     $vehicle_id = intval($data['vehicle_id']);
-    $tyres = htmlspecialchars($data['tyres']);
-    $drivers_cabin = htmlspecialchars($data['drivers_cabin']);
-    $loading_area = htmlspecialchars($data['loading_area']);
-    $exterior = htmlspecialchars($data['exterior']);
-    $engine_compartment = htmlspecialchars($data['engine_compartment']);
-    $mechanical = htmlspecialchars($data['mechanical']);
-    $comments = htmlspecialchars($data['comments']);
-    $test_driven = htmlspecialchars($data['test_driven']);
-    $test_drive_comments = htmlspecialchars($data['test_drive_comments']);
-    $inspection_by = $_SESSION['acct_id'] ?? 0; // logged-in staff ID
+    $tyres = htmlspecialchars($data['tyres'] ?? '');
+    $drivers_cabin = htmlspecialchars($data['drivers_cabin'] ?? '');
+    $loading_area = htmlspecialchars($data['loading_area'] ?? '');
+    $exterior = htmlspecialchars($data['exterior'] ?? '');
+    $engine_compartment = htmlspecialchars($data['engine_compartment'] ?? '');
+    $mechanical = htmlspecialchars($data['mechanical'] ?? '');
+    $comments = htmlspecialchars($data['comments'] ?? '');
+    $test_driven = htmlspecialchars($data['test_driven'] ?? '');
+    $test_drive_comments = htmlspecialchars($data['test_drive_comments'] ?? '');
+    $inspection_by = $_SESSION['acct_id'] ?? 0;
+
+    if (!$vehicle_id) {
+        echo "<script>alert('Vehicle ID is required!'); window.history.back();</script>";
+        exit;
+    }
 
     try {
-        // --- Check if inspection already exists ---
-        $check = $conn->prepare("SELECT COUNT(*) FROM vehicle_inspection_tbl WHERE vehicle_id = :vehicle_id");
+
+        // -----------------------------
+        // 2. CHECK DUPLICATE INSPECTION
+        // -----------------------------
+        $check = $conn->prepare("
+            SELECT COUNT(*) 
+            FROM vehicle_inspection_tbl 
+            WHERE vehicle_id = :vehicle_id
+        ");
         $check->execute([':vehicle_id' => $vehicle_id]);
+
         if ($check->fetchColumn() > 0) {
-            echo "<script>alert('Inspection already done for this vehicle!'); window.location='index.php?view=view_van_list';</script>";
-            return;
+            echo "<script>
+                alert('Inspection already done for this vehicle!');
+                window.location='index.php?view=view_van_list';
+            </script>";
+            exit;
         }
 
-        // --- Upload directory setup ---
+        // -----------------------------
+        // 3. UPLOAD DIRECTORY
+        // -----------------------------
         $uploadDir = "../../uploads/inspection_photos/";
         if (!is_dir($uploadDir)) {
             mkdir($uploadDir, 0777, true);
         }
 
-        // --- Helper function for file upload ---
-        function uploadPhoto($fieldName, $uploadDir)
+        // -----------------------------
+        // 4. ALLOWED MIME TYPES
+        // -----------------------------
+        $allowedMime = [
+            'image/jpeg',
+            'image/jpg',
+            'image/png',
+            'image/webp'
+        ];
+
+        // -----------------------------
+        // 5. SAFE PHOTO UPLOAD FUNCTION
+        // -----------------------------
+        function uploadInspectionPhoto($fieldName, $vehicle_id, $uploadDir, $allowedMime)
         {
-            if (!empty($_FILES[$fieldName]['name'])) {
-                $filename = time() . '_' . preg_replace("/[^a-zA-Z0-9._-]/", "_", basename($_FILES[$fieldName]['name']));
-                $targetPath = $uploadDir . $filename;
-                if (move_uploaded_file($_FILES[$fieldName]['tmp_name'], $targetPath)) {
-                    return $filename;
-                }
+            if (
+                empty($_FILES[$fieldName]['tmp_name']) ||
+                $_FILES[$fieldName]['error'] !== UPLOAD_ERR_OK
+            ) {
+                return null;
             }
+
+            $tmpName = $_FILES[$fieldName]['tmp_name'];
+
+            // MIME CHECK
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+            $mime  = finfo_file($finfo, $tmpName);
+            finfo_close($finfo);
+
+            if (!in_array($mime, $allowedMime)) {
+                return null;
+            }
+
+            // EXTENSION FIX (iPhone HEIC)
+            $ext = strtolower(pathinfo($_FILES[$fieldName]['name'], PATHINFO_EXTENSION));
+            if (in_array($ext, ['heic', 'heif'])) {
+                $ext = 'jpg';
+            }
+
+            // STRONG UNIQUE FILENAME
+            $fileName = 'insp_' . $vehicle_id . '_'
+                . date('Ymd_His') . '_'
+                . bin2hex(random_bytes(5)) . '.' . $ext;
+
+            $targetPath = $uploadDir . $fileName;
+
+            // COMPRESS & SAVE
+            if (compressImage($tmpName, $targetPath, 80)) {
+                return $fileName;
+            }
+
             return null;
         }
 
-        // --- Handle each photo upload ---
-        $photo_drivers_cabin = uploadPhoto('photo_drivers_cabin', $uploadDir);
-        $photo_loading_area  = uploadPhoto('photo_loading_area', $uploadDir);
-        $photo_exterior      = uploadPhoto('photo_exterior', $uploadDir);
-        $photo_engine_compartment  = uploadPhoto('photo_engine_compartment', $uploadDir);
+        // -----------------------------
+        // 6. HANDLE PHOTO UPLOADS
+        // -----------------------------
+        $photo_drivers_cabin = uploadInspectionPhoto(
+            'photo_drivers_cabin',
+            $vehicle_id,
+            $uploadDir,
+            $allowedMime
+        );
 
-        // --- Insert into table ---
+        $photo_loading_area = uploadInspectionPhoto(
+            'photo_loading_area',
+            $vehicle_id,
+            $uploadDir,
+            $allowedMime
+        );
+
+        $photo_exterior = uploadInspectionPhoto(
+            'photo_exterior',
+            $vehicle_id,
+            $uploadDir,
+            $allowedMime
+        );
+
+        $photo_engine_compartment = uploadInspectionPhoto(
+            'photo_engine_compartment',
+            $vehicle_id,
+            $uploadDir,
+            $allowedMime
+        );
+
+        // -----------------------------
+        // 7. INSERT INTO DATABASE
+        // -----------------------------
         $stmt = $conn->prepare("
-            INSERT INTO vehicle_inspection_tbl 
-            (vehicle_id, tyres, drivers_cabin, loading_area, exterior, engine_compartment, mechanical, comments, 
-             test_driven, test_drive_comments, photo_drivers_cabin, photo_loading_area, photo_exterior,photo_engine_compartment, inspection_by, inspection_date)
-            VALUES 
-            (:vehicle_id, :tyres, :drivers_cabin, :loading_area, :exterior, :engine_compartment, :mechanical, :comments, 
-             :test_driven, :test_drive_comments, :photo_drivers_cabin, :photo_loading_area, :photo_exterior,:photo_engine_compartment, :inspection_by, NOW())
+            INSERT INTO vehicle_inspection_tbl
+            (
+                vehicle_id, tyres, drivers_cabin, loading_area, exterior,
+                engine_compartment, mechanical, comments,
+                test_driven, test_drive_comments,
+                photo_drivers_cabin, photo_loading_area,
+                photo_exterior, photo_engine_compartment,
+                inspection_by, inspection_date
+            )
+            VALUES
+            (
+                :vehicle_id, :tyres, :drivers_cabin, :loading_area, :exterior,
+                :engine_compartment, :mechanical, :comments,
+                :test_driven, :test_drive_comments,
+                :photo_drivers_cabin, :photo_loading_area,
+                :photo_exterior, :photo_engine_compartment,
+                :inspection_by, NOW()
+            )
         ");
 
         $stmt->execute([
@@ -552,35 +1075,148 @@ function saveInspection($conn, $data)
             ':inspection_by' => $inspection_by
         ]);
 
-        //     echo "<script>alert('Inspection saved successfully!'); window.location='index.php?view=view_van_list';</script>";
-        // } catch (PDOException $e) {
-        //     echo "<script>alert('Error: " . addslashes($e->getMessage()) . "'); window.history.back();</script>";
-        // }
-        // SUCCESS REDIRECT
-        header("Location: index.php?view=inspection&vehicle_no=$vehicle_id&status=success");
+        // -----------------------------
+        // 8. SUCCESS REDIRECT
+        // -----------------------------
+        header("Location: index.php?view=inspection&vehicle_no={$vehicle_id}&status=success");
         exit;
-    } catch (PDOException $e) {
 
-        // (Optional) Log error to file but DO NOT echo before header
-        error_log("Vehicle image update error: " . $e->getMessage());
+    } catch (Exception $e) {
 
-        // ERROR REDIRECT
-        header("Location: index.php?view=inspection&vehicle_no=$vehicle_id&status=error");
+        error_log("Inspection save error: " . $e->getMessage());
+
+        header("Location: index.php?view=inspection&vehicle_no={$vehicle_id}&status=error");
         exit;
     }
 }
 
 
 
+
 // This function is used to update inspection 
+// function updateInspection($conn, $data)
+// {
+//     $vehicle_id = $data['vehicle_id'] ?? 0;
+
+//     if (empty($vehicle_id)) {
+//         return ['status' => 'error', 'message' => 'Invalid Vehicle ID'];
+//     }
+
+//     $tyres               = htmlspecialchars($data['tyres'] ?? '');
+//     $drivers_cabin       = htmlspecialchars($data['drivers_cabin'] ?? '');
+//     $loading_area        = htmlspecialchars($data['loading_area'] ?? '');
+//     $exterior            = htmlspecialchars($data['exterior'] ?? '');
+//     $engine_compartment  = htmlspecialchars($data['engine_compartment'] ?? '');
+//     $mechanical          = htmlspecialchars($data['mechanical'] ?? '');
+//     $comments            = htmlspecialchars($data['comments'] ?? '');
+//     $test_driven         = htmlspecialchars($data['test_driven'] ?? '');
+//     $test_drive_comments = htmlspecialchars($data['test_drive_comments'] ?? '');
+//     $inspection_by       = $_SESSION['acct_id'] ?? ($data['inspection_by'] ?? null);
+
+//     try {
+//         // --- Directory for uploads ---
+//         $uploadDir = "../../uploads/inspection_photos/";
+//         if (!is_dir($uploadDir)) {
+//             mkdir($uploadDir, 0777, true);
+//         }
+
+//         // --- Helper: Upload and rename photo safely ---
+//         function uploadPhotoUpdate($fieldName, $uploadDir, $existingFile = null)
+//         {
+//             if (!empty($_FILES[$fieldName]['name'])) {
+//                 $filename = time() . '_' . preg_replace("/[^a-zA-Z0-9._-]/", "_", basename($_FILES[$fieldName]['name']));
+//                 $targetPath = $uploadDir . $filename;
+//                 if (move_uploaded_file($_FILES[$fieldName]['tmp_name'], $targetPath)) {
+//                     // Delete old file if exists
+//                     if (!empty($existingFile) && file_exists($uploadDir . $existingFile)) {
+//                         unlink($uploadDir . $existingFile);
+//                     }
+//                     return $filename;
+//                 }
+//             }
+//             return $existingFile; // keep old if no new file uploaded
+//         }
+//         // --- Fetch existing photo filenames ---
+//         $stmt = $conn->prepare("SELECT photo_drivers_cabin, photo_loading_area, photo_exterior, photo_engine_compartment FROM vehicle_inspection_tbl WHERE vehicle_id = :vehicle_id");
+//         $stmt->execute([':vehicle_id' => $vehicle_id]);
+//         $existing = $stmt->fetch(PDO::FETCH_ASSOC);
+
+//         // --- Update photo fields if new files uploaded ---
+//         $photo_drivers_cabin = uploadPhotoUpdate('photo_drivers_cabin', $uploadDir, $existing['photo_drivers_cabin'] ?? null);
+//         $photo_loading_area  = uploadPhotoUpdate('photo_loading_area', $uploadDir, $existing['photo_loading_area'] ?? null);
+//         $photo_exterior      = uploadPhotoUpdate('photo_exterior', $uploadDir, $existing['photo_exterior'] ?? null);
+//         $photo_engine_compartment  = uploadPhotoUpdate('photo_engine_compartment', $uploadDir, $existing['photo_engine_compartment'] ?? null);
+
+//         // --- Update inspection record ---
+//         $stmt = $conn->prepare("
+//             UPDATE vehicle_inspection_tbl 
+//             SET 
+//                 tyres               = :tyres,
+//                 drivers_cabin       = :drivers_cabin,
+//                 loading_area        = :loading_area,
+//                 exterior            = :exterior,
+//                 engine_compartment  = :engine_compartment,
+//                 mechanical          = :mechanical,
+//                 comments            = :comments,
+//                 test_driven         = :test_driven,
+//                 test_drive_comments = :test_drive_comments,
+//                 photo_drivers_cabin = :photo_drivers_cabin,
+//                 photo_loading_area  = :photo_loading_area,
+//                 photo_exterior      = :photo_exterior,
+//                 photo_engine_compartment = :photo_engine_compartment,
+//                 inspection_by       = :inspection_by,
+//                 inspection_date     = NOW()
+//             WHERE vehicle_id = :vehicle_id
+//         ");
+
+//         $stmt->execute([
+//             ':vehicle_id'          => $vehicle_id,
+//             ':tyres'               => $tyres,
+//             ':drivers_cabin'       => $drivers_cabin,
+//             ':loading_area'        => $loading_area,
+//             ':exterior'            => $exterior,
+//             ':engine_compartment'  => $engine_compartment,
+//             ':mechanical'          => $mechanical,
+//             ':comments'            => $comments,
+//             ':test_driven'         => $test_driven,
+//             ':test_drive_comments' => $test_drive_comments,
+//             ':photo_drivers_cabin' => $photo_drivers_cabin,
+//             ':photo_loading_area'  => $photo_loading_area,
+//             ':photo_exterior'      => $photo_exterior,
+//             ':photo_engine_compartment'  => $photo_engine_compartment,
+//             ':inspection_by'       => $inspection_by
+//         ]);
+
+//         //     echo "<script>alert('Inspection updated successfully!'); window.location='index.php?view=view_van_list';</script>";
+//         //     exit;
+//         // } catch (PDOException $e) {
+//         //     return ['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()];
+//         // }
+//         // SUCCESS REDIRECT
+//         header("Location: index.php?view=edit_inspection_form&vehicle_no=$vehicle_id&status=success");
+//         exit;
+//     } catch (PDOException $e) {
+
+//         // (Optional) Log error to file but DO NOT echo before header
+//         error_log("Vehicle image update error: " . $e->getMessage());
+
+//         // ERROR REDIRECT
+//         header("Location: index.php?view=edit_inspection_form&vehicle_no=$vehicle_id&status=error");
+//         exit;
+//     }
+// }
 function updateInspection($conn, $data)
 {
-    $vehicle_id = $data['vehicle_id'] ?? 0;
+    $vehicle_id = intval($data['vehicle_id'] ?? 0);
 
-    if (empty($vehicle_id)) {
-        return ['status' => 'error', 'message' => 'Invalid Vehicle ID'];
+    if (!$vehicle_id) {
+        header("Location: index.php?view=edit_inspection_form&status=error");
+        exit;
     }
 
+    /* -----------------------------
+       SANITIZE INPUTS
+    ----------------------------- */
     $tyres               = htmlspecialchars($data['tyres'] ?? '');
     $drivers_cabin       = htmlspecialchars($data['drivers_cabin'] ?? '');
     $loading_area        = htmlspecialchars($data['loading_area'] ?? '');
@@ -590,46 +1226,132 @@ function updateInspection($conn, $data)
     $comments            = htmlspecialchars($data['comments'] ?? '');
     $test_driven         = htmlspecialchars($data['test_driven'] ?? '');
     $test_drive_comments = htmlspecialchars($data['test_drive_comments'] ?? '');
-    $inspection_by       = $_SESSION['acct_id'] ?? ($data['inspection_by'] ?? null);
+    $inspection_by       = $_SESSION['acct_id'] ?? null;
 
     try {
-        // --- Directory for uploads ---
+
+        /* -----------------------------
+           UPLOAD DIRECTORY
+        ----------------------------- */
         $uploadDir = "../../uploads/inspection_photos/";
         if (!is_dir($uploadDir)) {
             mkdir($uploadDir, 0777, true);
         }
 
-        // --- Helper: Upload and rename photo safely ---
-        function uploadPhotoUpdate($fieldName, $uploadDir, $existingFile = null)
-        {
-            if (!empty($_FILES[$fieldName]['name'])) {
-                $filename = time() . '_' . preg_replace("/[^a-zA-Z0-9._-]/", "_", basename($_FILES[$fieldName]['name']));
-                $targetPath = $uploadDir . $filename;
-                if (move_uploaded_file($_FILES[$fieldName]['tmp_name'], $targetPath)) {
-                    // Delete old file if exists
-                    if (!empty($existingFile) && file_exists($uploadDir . $existingFile)) {
-                        unlink($uploadDir . $existingFile);
-                    }
-                    return $filename;
-                }
-            }
-            return $existingFile; // keep old if no new file uploaded
-        }
-        // --- Fetch existing photo filenames ---
-        $stmt = $conn->prepare("SELECT photo_drivers_cabin, photo_loading_area, photo_exterior, photo_engine_compartment FROM vehicle_inspection_tbl WHERE vehicle_id = :vehicle_id");
+        /* -----------------------------
+           ALLOWED MIME TYPES
+        ----------------------------- */
+        $allowedMime = [
+            'image/jpeg',
+            'image/jpg',
+            'image/png',
+            'image/webp'
+        ];
+
+        /* -----------------------------
+           FETCH EXISTING PHOTOS
+        ----------------------------- */
+        $stmt = $conn->prepare("
+            SELECT photo_drivers_cabin,
+                   photo_loading_area,
+                   photo_exterior,
+                   photo_engine_compartment
+            FROM vehicle_inspection_tbl
+            WHERE vehicle_id = :vehicle_id
+        ");
         $stmt->execute([':vehicle_id' => $vehicle_id]);
         $existing = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        // --- Update photo fields if new files uploaded ---
-        $photo_drivers_cabin = uploadPhotoUpdate('photo_drivers_cabin', $uploadDir, $existing['photo_drivers_cabin'] ?? null);
-        $photo_loading_area  = uploadPhotoUpdate('photo_loading_area', $uploadDir, $existing['photo_loading_area'] ?? null);
-        $photo_exterior      = uploadPhotoUpdate('photo_exterior', $uploadDir, $existing['photo_exterior'] ?? null);
-        $photo_engine_compartment  = uploadPhotoUpdate('photo_engine_compartment', $uploadDir, $existing['photo_engine_compartment'] ?? null);
+        /* -----------------------------
+           SAFE PHOTO UPDATE HELPER
+        ----------------------------- */
+        function updateInspectionPhoto($fieldName, $vehicle_id, $uploadDir, $allowedMime, $existingFile = null)
+        {
+            if (
+                empty($_FILES[$fieldName]['tmp_name']) ||
+                $_FILES[$fieldName]['error'] !== UPLOAD_ERR_OK
+            ) {
+                return $existingFile;
+            }
 
-        // --- Update inspection record ---
+            $tmpName = $_FILES[$fieldName]['tmp_name'];
+
+            // MIME CHECK
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+            $mime  = finfo_file($finfo, $tmpName);
+            finfo_close($finfo);
+
+            if (!in_array($mime, $allowedMime)) {
+                return $existingFile;
+            }
+
+            // EXTENSION FIX (iPhone HEIC)
+            $ext = strtolower(pathinfo($_FILES[$fieldName]['name'], PATHINFO_EXTENSION));
+            if (in_array($ext, ['heic', 'heif'])) {
+                $ext = 'jpg';
+            }
+
+            // STRONG UNIQUE NAME
+            $fileName = 'insp_' . $vehicle_id . '_'
+                . date('Ymd_His') . '_'
+                . bin2hex(random_bytes(5)) . '.' . $ext;
+
+            $targetPath = $uploadDir . $fileName;
+
+            // COMPRESS & SAVE
+            if (!compressImage($tmpName, $targetPath, 80)) {
+                return $existingFile;
+            }
+
+            // DELETE OLD FILE
+            if ($existingFile && file_exists($uploadDir . $existingFile)) {
+                unlink($uploadDir . $existingFile);
+            }
+
+            return $fileName;
+        }
+
+        /* -----------------------------
+           HANDLE PHOTO UPDATES
+        ----------------------------- */
+        $photo_drivers_cabin = updateInspectionPhoto(
+            'photo_drivers_cabin',
+            $vehicle_id,
+            $uploadDir,
+            $allowedMime,
+            $existing['photo_drivers_cabin'] ?? null
+        );
+
+        $photo_loading_area = updateInspectionPhoto(
+            'photo_loading_area',
+            $vehicle_id,
+            $uploadDir,
+            $allowedMime,
+            $existing['photo_loading_area'] ?? null
+        );
+
+        $photo_exterior = updateInspectionPhoto(
+            'photo_exterior',
+            $vehicle_id,
+            $uploadDir,
+            $allowedMime,
+            $existing['photo_exterior'] ?? null
+        );
+
+        $photo_engine_compartment = updateInspectionPhoto(
+            'photo_engine_compartment',
+            $vehicle_id,
+            $uploadDir,
+            $allowedMime,
+            $existing['photo_engine_compartment'] ?? null
+        );
+
+        /* -----------------------------
+           UPDATE DATABASE
+        ----------------------------- */
         $stmt = $conn->prepare("
-            UPDATE vehicle_inspection_tbl 
-            SET 
+            UPDATE vehicle_inspection_tbl
+            SET
                 tyres               = :tyres,
                 drivers_cabin       = :drivers_cabin,
                 loading_area        = :loading_area,
@@ -649,38 +1371,34 @@ function updateInspection($conn, $data)
         ");
 
         $stmt->execute([
-            ':vehicle_id'          => $vehicle_id,
-            ':tyres'               => $tyres,
-            ':drivers_cabin'       => $drivers_cabin,
-            ':loading_area'        => $loading_area,
-            ':exterior'            => $exterior,
-            ':engine_compartment'  => $engine_compartment,
-            ':mechanical'          => $mechanical,
-            ':comments'            => $comments,
-            ':test_driven'         => $test_driven,
-            ':test_drive_comments' => $test_drive_comments,
-            ':photo_drivers_cabin' => $photo_drivers_cabin,
-            ':photo_loading_area'  => $photo_loading_area,
-            ':photo_exterior'      => $photo_exterior,
-            ':photo_engine_compartment'  => $photo_engine_compartment,
-            ':inspection_by'       => $inspection_by
+            ':vehicle_id'               => $vehicle_id,
+            ':tyres'                    => $tyres,
+            ':drivers_cabin'            => $drivers_cabin,
+            ':loading_area'             => $loading_area,
+            ':exterior'                 => $exterior,
+            ':engine_compartment'       => $engine_compartment,
+            ':mechanical'               => $mechanical,
+            ':comments'                 => $comments,
+            ':test_driven'              => $test_driven,
+            ':test_drive_comments'      => $test_drive_comments,
+            ':photo_drivers_cabin'      => $photo_drivers_cabin,
+            ':photo_loading_area'       => $photo_loading_area,
+            ':photo_exterior'           => $photo_exterior,
+            ':photo_engine_compartment' => $photo_engine_compartment,
+            ':inspection_by'            => $inspection_by
         ]);
 
-        //     echo "<script>alert('Inspection updated successfully!'); window.location='index.php?view=view_van_list';</script>";
-        //     exit;
-        // } catch (PDOException $e) {
-        //     return ['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()];
-        // }
-        // SUCCESS REDIRECT
-        header("Location: index.php?view=edit_inspection_form&vehicle_no=$vehicle_id&status=success");
+        /* -----------------------------
+           SUCCESS REDIRECT
+        ----------------------------- */
+        header("Location: index.php?view=edit_inspection_form&vehicle_no={$vehicle_id}&status=success");
         exit;
-    } catch (PDOException $e) {
 
-        // (Optional) Log error to file but DO NOT echo before header
-        error_log("Vehicle image update error: " . $e->getMessage());
+    } catch (Exception $e) {
 
-        // ERROR REDIRECT
-        header("Location: index.php?view=edit_inspection_form&vehicle_no=$vehicle_id&status=error");
+        error_log("Inspection update error: " . $e->getMessage());
+
+        header("Location: index.php?view=edit_inspection_form&vehicle_no={$vehicle_id}&status=error");
         exit;
     }
 }
