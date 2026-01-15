@@ -439,7 +439,7 @@ function upload_vehicle_images()
             ------------------------------------------------- */
             $stmt = $conn->prepare("
                 INSERT INTO vehicle_images_tbl
-                (vehicle_id, image_path, image_label, image_description, created_at)
+                (vehicle_id, image_path, image_label, image_description, uploaded_at)
                 VALUES
                 (:vehicle_id, :image_path, :image_label, :image_description, NOW())
             ");
@@ -768,7 +768,7 @@ function update_vehicle_images()
                 /* INSERT DB */
                 $stmt = $conn->prepare("
                     INSERT INTO vehicle_images_tbl
-                    (vehicle_id, image_path, image_label, image_description, created_at)
+                    (vehicle_id, image_path, image_label, image_description, uploaded_at)
                     VALUES
                     (:vehicle_id, :image_path, :image_label, :image_description, NOW())
                 ");

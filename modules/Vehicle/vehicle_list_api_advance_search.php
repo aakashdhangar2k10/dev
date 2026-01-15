@@ -71,7 +71,7 @@ $params = [];
 |--------------------------------------------------------------------------
 */
 if ($type !== 'Administrator') {
-    $where .= " AND vd.assigned_staff = :login_acct_id";
+    $where .= " AND vd.assigned_staff = :login_acct_id AND vd.is_deleted = 0";
     $params[':login_acct_id'] = $acct_id;
 }
 

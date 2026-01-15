@@ -45,10 +45,11 @@ confirm_logged_in();
 
                 <?php
                 $assigned_staff = $_SESSION['acct_id']; // assigned staff from session
-                $total_van = $conn->prepare("SELECT COUNT(id) FROM vehicle_details_tbl WHERE branch_id = ? AND assigned_staff = ?");
-                $total_van->execute([$branch_id, $assigned_staff]);
+                $branch_id = $_SESSION['branch_id']; 
+                $total_van = $conn->prepare("SELECT COUNT(id) FROM vehicle_details_tbl WHERE assigned_staff = ? AND is_deleted = 0");
+                $total_van->execute([$assigned_staff]);
                 $count = $total_van->fetchColumn();
-                 echo '<h3>' . $count . '</h3>';
+                echo '<h3>' . $count . '</h3>';
 
                 ?>
                 <p>Total Van</p>

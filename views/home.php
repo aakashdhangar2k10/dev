@@ -30,7 +30,7 @@ confirm_logged_in();
       <div class="inner">
 
         <?php
-        $total_van = $conn->query('SELECT COUNT(id) FROM vehicle_details_tbl')->fetchColumn();
+        $total_van = $conn->query('SELECT COUNT(id) FROM vehicle_details_tbl WHERE is_deleted = 0')->fetchColumn();
         echo '<h3>' . $total_van . '</h3>';
         ?>
         <p>Total Van</p>
