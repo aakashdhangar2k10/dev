@@ -1535,6 +1535,55 @@ function updateInspection($conn, $data)
 //     echo json_encode(["status" => "success"]);
 // }
 
+// function compressImage($source, $destination, $maxSizeKB = 50)
+// {
+//     $info = getimagesize($source);
+//     if ($info === false) return false;
+
+//     $mime = $info['mime'];
+
+//     switch ($mime) {
+//         case 'image/jpeg':
+//         case 'image/jpg':
+//             $image = imagecreatefromjpeg($source);
+//             break;
+
+//         case 'image/png':
+//             $image = imagecreatefrompng($source);
+//             imagepalettetotruecolor($image);
+//             imagealphablending($image, true);
+//             imagesavealpha($image, true);
+//             break;
+
+//         case 'image/webp':
+//             $image = imagecreatefromwebp($source);
+//             break;
+
+//         default:
+//             return false;
+//     }
+
+//     // Start quality
+//     $quality = 85;
+
+//     do {
+//         if ($mime === 'image/png') {
+//             imagepng($image, $destination, 9); // max compression
+//         } elseif ($mime === 'image/webp') {
+//             imagewebp($image, $destination, $quality);
+//         } else {
+//             imagejpeg($image, $destination, $quality);
+//         }
+
+//         clearstatcache();
+//         $sizeKB = filesize($destination) / 1024;
+//         $quality -= 5;
+//     } while ($sizeKB > $maxSizeKB && $quality > 30);
+
+//     imagedestroy($image);
+//     return true;
+// }
+
 function compressImage($source, $destination, $maxSizeKB = 50)
 {
     $info = getimagesize($source);
@@ -1563,24 +1612,55 @@ function compressImage($source, $destination, $maxSizeKB = 50)
             return false;
     }
 
-    // Start quality
-    $quality = 85;
+    // ---- TARGET SIZE ----
+    $targetWidth  = 600;
+    $targetHeight = 450;
+
+    $srcWidth  = imagesx($image);
+    $srcHeight = imagesy($image);
+
+    $resized = imagecreatetruecolor($targetWidth, $targetHeight);
+
+    // Preserve transparency for PNG
+    if ($mime === 'image/png') {
+        imagealphablending($resized, false);
+        imagesavealpha($resized, true);
+        $transparent = imagecolorallocatealpha($resized, 0, 0, 0, 127);
+        imagefill($resized, 0, 0, $transparent);
+    }
+
+    imagecopyresampled(
+        $resized,
+        $image,
+        0, 0, 0, 0,
+        $targetWidth,
+        $targetHeight,
+        $srcWidth,
+        $srcHeight
+    );
+
+    // ---- COMPRESS ----
+    $quality = 40;
 
     do {
         if ($mime === 'image/png') {
-            imagepng($image, $destination, 9); // max compression
+            imagepng($resized, $destination, 9);
         } elseif ($mime === 'image/webp') {
-            imagewebp($image, $destination, $quality);
+            imagewebp($resized, $destination, $quality);
         } else {
-            imagejpeg($image, $destination, $quality);
+            imagejpeg($resized, $destination, $quality);
         }
 
         clearstatcache();
         $sizeKB = filesize($destination) / 1024;
         $quality -= 5;
+
     } while ($sizeKB > $maxSizeKB && $quality > 30);
 
     imagedestroy($image);
+    imagedestroy($resized);
+
     return true;
 }
+
 /////////////////////////////////////////////////////////
