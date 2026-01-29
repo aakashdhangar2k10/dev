@@ -505,7 +505,7 @@ $all_staff = $staffQuery->fetchAll(PDO::FETCH_ASSOC);
                             <label class="text-muted">Upload Photo (Exterior):</label><br>
                             <?php if (!empty($lastInspection['photo_exterior'])): ?>
                                 <img src="../../uploads/inspection_photos/<?= htmlspecialchars($lastInspection['photo_exterior']); ?>"
-                                    class="img-thumbnail mt-2" style="width:150px;"onclick="openImageModal(this)">
+                                    class="img-thumbnail mt-2" style="width:150px;" onclick="openImageModal(this)">
                             <?php endif; ?>
                         </div>
                     </div>
@@ -536,7 +536,7 @@ $all_staff = $staffQuery->fetchAll(PDO::FETCH_ASSOC);
                             <label class="text-muted">Photo (Engine Compartment):</label><br>
                             <?php if (!empty($lastInspection['photo_engine_compartment'])): ?>
                                 <img src="../../uploads/inspection_photos/<?= htmlspecialchars($lastInspection['photo_engine_compartment']); ?>"
-                                    class="img-thumbnail mt-2" style="width:150px;"onclick="openImageModal(this)">
+                                    class="img-thumbnail mt-2" style="width:150px;" onclick="openImageModal(this)">
                             <?php endif; ?>
                         </div>
                     </div>
@@ -601,6 +601,13 @@ $all_staff = $staffQuery->fetchAll(PDO::FETCH_ASSOC);
     function closeImageModal() {
         document.getElementById("imgModal").style.display = "none";
     }
+
+    // Close modal on ESC key
+    document.addEventListener("keydown", function(event) {
+        if (event.key === "Escape") {
+            closeImageModal();
+        }
+    });
 
 
     function showStaffEdit() {
